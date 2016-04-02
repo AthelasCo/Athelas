@@ -2,7 +2,7 @@
 <html lang="en-us">
   <head>
     <meta charset="UTF-8">
-    <title>Paragraphgen by ParaGraphGen</title>
+    <title>Athelas by AthelasCo</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
     <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
@@ -13,46 +13,71 @@
     <section class="page-header">
       <h1 class="project-name">Paragraphgen</h1>
       <h2 class="project-tagline"></h2>
-      <a href="https://github.com/ParaGraphGen/paraGraphGen" class="btn">View on GitHub</a>
-      <a href="https://github.com/ParaGraphGen/paraGraphGen/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/ParaGraphGen/paraGraphGen/tarball/master" class="btn">Download .tar.gz</a>
+      <a href="https://github.com/AthelasCo/Athelas" class="btn">View on GitHub</a>
+      <a href="https://github.com/AthelasCo/Athelas/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/AthelasCo/Athelas/tarball/master" class="btn">Download .tar.gz</a>
     </section>
 
     <section class="main-content">
-      <p>The purpose of the proposal is two-fold:</p>
+      
 
-<p>Writing your ideas down forces you to organize your thoughts about your project .
-It gives 15-418/618 course staff the ability to verify your plans are of the right scope given our expectations (it also gives us the ability to offer suggestions and help).
-Please create a web page for your project. Your project page should contain the following sections and content:</p>
+<p>TITLE. Athelas: A parallel random graph generation library.
 
-<p>TITLE. Please provide the title of your project, followed by the names of all team members. Teams may include up to two students. There are no exceptions to this rule.</p>
+BY
+Eshan Verma & Karandeep Johar</p>
 
-<p>SUMMARY. Summarize your project in no more than 2-3 sentences. Describe what you plan to do and what parallel systems you will be working with. Example one-liners include (you should add a bit more detail):</p>
+<p>SUMMARY.We will implement a library to generate parallel large-scale graphs using OpenMP exploiting SIMD Architecture and using CUDA on GPUS. The aim is to compare implementation complexity, speed and resource efficiency.</p>
 
-<p>We are going to implement an optimized Smoothed Particle Hydrodynamics fluid solver on the NVIDIA GPUs in the lab.
-We are going port the Go runtime to Blacklight.
-We are going to create optimized implementations of sparse-matrix multiplication on both GPU and multi-core CPU platforms, and perform a detailed analysis of both systems' performance characteristics.
-We are going to back-engineer the unpublished machine specifications of the GPU in the tablet my partner just purchased.
-We are going to implement two possible algorithms for a real-time computer vision application on a mobile device and measure their energy consumption in the lab.
-BACKGROUND. If your project involves accelerating a compute-intensive application, describe the application or piece of the application you are going to implement in more detail. This description need only be a few paragraphs. It might be helpful to include a block diagram or pseudocode of the basic idea. An important detail is what aspects of the problem might benefit from parallelism? and why?</p>
+<p>BACKGROUND:
+Processing Real World graphs is an active research problem. The real-world complex graphs are typically very large (with millions or more vertices) and their sizes grow over time. Some researchers predict that the size of these graphs will eventually reach 1015 vertices . Unfortunately, we do not have publicly available real graphs that are large enough to test the functionality and true scalability of the graph applications A serious drawback of these models is that they are all sequential models and hence, are inadequate to use to generate the massive graphs with billions of vertices and edges.
+We plan to parallelize the generation of random graphs. There are two widely used two techniques for this.
+1. Stochastic Kronecker Graph (A generalization of RMAT graph generation and ER)
+2. Erdos-Renyi graph
+3. Parallel Barabasi-Albert (PBA) method
+4. CL method (Chung Lu)
+Though SKG method generalizes ER there are specific method for ER that can be made to run faster.  We plan to analyze these methods. Each of these methods will present different challenges and we hope to touch upon different aspects of parallel operations.
+To concentrate best on our aim of comparison of the two implementation libraries, we plan to implement various algorithms of (1) and (2) and optimize the best possible on these algorithms. The covered algorithms will be ER, ZER and PreZER for (2) and their corresponding parallel versions and the serial and parallel implementations of (1). Hence in all we will be implementing 8 algorithms and doing analysis on them.
+</p>
 
-<p>THE CHALLENGE. Describe why the problem is challenging. What aspects of the problem might make it difficult to parallelize? In other words, what to you hope to learn by doing the project?</p>
+<p>THE CHALLENGE
+Our project is different from most other tasks handled in this project. There is no reading of input data rather a large amount of data will be generated. Along with that we will to ensure the following:
+Reducing communication between different parallel 
+Distributing graph over the cores (load balancing)
+Writing efficiently to memory
+Exploiting SIMD architecture
+</p>
+<p>RESOURCES
+We will be using the code present here as our starting point:
+http://www.cs.cmu.edu/~christos/PUBLICATIONS/siam04.pdf RMAT definition
+https://github.com/farkhor/PaRMAT:
+http://www.cs.ucr.edu/~gupta/research/Publications/Comp/wsvr.pdf: PaRMAT paper
+And referencing the following two papers for implementing a parallel Barabasi-Albert method and the Kronecker Graphs:
+http://arxiv.org/pdf/1003.3684v1.pdf Parallel Generation of Massive Scale-Free Graphs
+https://github.com/snap-stanford/snap/blob/master/examples/graphgen/graphgen.cpp
+http://karras.rutgers.edu/rg.pdf
+http://snap.stanford.edu/class/cs224w-2012/projects/cs224w-035-final.v01.pdf
+http://arxiv.org/pdf/1406.1215.pdf Parallel Algorithms for Generating Random Networks with Given Degree Sequences
+</p>
+  
+<p>GOALS AND DELIVERABLES. 
+PLAN TO ACHIEVE: We hope to implement various graph generation models on both OpenMP and CUDA and be more efficient in both of them than compared to the pthread-based starter code.  Our aim is to not blindly focus on the speed of execution but also evaluate various aspects of the problem and the problems faced while parallelizing it over different architectures.
+Hence we will aim to deep-dive into various aspects of designing over the GPU & OpenMP and using the built-in constructs & pre-existing libraries to best accelerate and optimize the code.
+For the chosen task, the reason for implementing different algorithms is to focus on extracting metrics for comparison and effectively evaluate the two platforms.
+HOPE TO ACHIEVE: (1) Make the starter code (pthread based) reflect the algorithms we have implemented and then have an efficient way to compare 3 architectures over different implementations. 
+(2) Implement BA and CL and add them to the analysis</p>
 
-<p>Describe the workload: what are the dependencies, what are its memory access characteristics? (is there locality? is there a high communication to computation ratio?), is there divergent execution?
-Describe constraints: What are the properties of the system that make mapping the workload to it challenging?
-RESOURCES. Describe the resources (type of computers, starter code, etc.) you will use. What code base will you start from? Are you starting from scratch or using an existing piece of code? Is there a book or paper that you are using as a reference (if so, provide a citation)? Are there any other resources you need, but haven't figured out how to obtain yet? Could you benefit from access to any special machines?</p>
+<p>PLATFORM CHOICE
+Our graph generation algorithms will be SPMD in nature, which will generate a lot of output data and have high inter-compute core communication. We will use a high count CPU core and A comparable GPU to be able to have an effective comparison. We will develop on GHC machines and plan to test and final benchmarking on latedays.
+Fine grain optimizations, based on CPU cache sizes or GPU shared memories will be dictated for final testing.</p>
 
-<p>GOALS AND DELIVERABLES. Describe the deliverables or goals of your project.</p>
+<p>SCHEDULE
+4/9	: Implement Serial ER algos and Serial and Parallel SKG in OpenMP
+4/16	: Finish all OpenMP implementation of the 8 algorithms
+4/23	: Implement Serial ER algos and Serial and Parallel SKG in CUDA
+4/30	: Finish all CUDA implementation of the 8 algorithms
+5/7	: Finish Benchmarking and finer optimizations.
+</p>
 
-<p>This is by far the most important section of the proposal:</p>
-
-<p>Separate your goals into what you PLAN TO ACHIEVE (what you believe you must get done to have a successful project and get the grade you expect) and an extra goal or two that you HOPE TO ACHIEVE if the project goes really well and you get ahead of schedule. It may not be possible to state precise performance goals at this time, but we encourage you be as precise as possible. If you do state a goal, give some justification of why you think you can achieve it. (e.g., I hope to speed up my starter code 10x, because if I did it would run in real-time.)
-If applicable, describe the demo you plan to show at the parallelism computation (will it be an interactive demo? will you show an output of the program that is really neat? will you show speedup graphs?). Specifically, what will you show us that will demonstrate you did a good job?
-If your project is an analysis project, what are you hoping to learn about the workload or system being studied? What question(s) do you plan to answer in your analysis?
-Systems project proposals should describe what the system will be capable of and what performance is hoped to be achieved.
-PLATFORM CHOICE. Describe why the platform (computer and/or language) you have chosen is a good one for your needs. Why does it make sense to use this parallel system for the workload you have chosen?</p>
-
-<p>SCHEDULE. Produce a schedule for your project. Your schedule should have at least one item to do per week. List what you plan to get done each week from now until the parallelism competition in order to meet your project goals. Keep in mind that due to other classes, you'll have more time to work some weeks than others (work that into the schedule). You will need to re-evaluate your progress at the end of each week and update this schedule accordingly. Note the intermediate checkpoint deadline is April 16th. In your schedule we encourage you to be precise as precise as possible. It's often helpful to work backward in time from your deliverables and goals, writing down all the little things you'll need to do (establish the dependencies!).</p>
 
       <footer class="site-footer">
         <span class="site-footer-owner"><a href="https://github.com/ParaGraphGen/paraGraphGen">Paragraphgen</a> is maintained by <a href="https://github.com/ParaGraphGen">ParaGraphGen</a>.</span>
