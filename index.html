@@ -21,14 +21,14 @@
     <section class="main-content">
       
 
-<p>TITLE. Athelas: A parallel random graph generation library.
+<pre>TITLE. Athelas: A parallel random graph generation library.
 
 BY
-Eshan Verma & Karandeep Johar</p>
+Eshan Verma & Karandeep Johar</pre>
 
 <p>SUMMARY.We will implement a library to generate parallel large-scale graphs using OpenMP exploiting SIMD Architecture and using CUDA on GPUS. The aim is to compare implementation complexity, speed and resource efficiency.</p>
 
-<p>BACKGROUND:
+<pre>BACKGROUND:
 Processing Real World graphs is an active research problem. The real-world complex graphs are typically very large (with millions or more vertices) and their sizes grow over time. Some researchers predict that the size of these graphs will eventually reach 1015 vertices . Unfortunately, we do not have publicly available real graphs that are large enough to test the functionality and true scalability of the graph applications A serious drawback of these models is that they are all sequential models and hence, are inadequate to use to generate the massive graphs with billions of vertices and edges.
 We plan to parallelize the generation of random graphs. There are two widely used two techniques for this.
 1. Stochastic Kronecker Graph (A generalization of RMAT graph generation and ER)
@@ -37,46 +37,53 @@ We plan to parallelize the generation of random graphs. There are two widely use
 4. CL method (Chung Lu)
 Though SKG method generalizes ER there are specific method for ER that can be made to run faster.  We plan to analyze these methods. Each of these methods will present different challenges and we hope to touch upon different aspects of parallel operations.
 To concentrate best on our aim of comparison of the two implementation libraries, we plan to implement various algorithms of (1) and (2) and optimize the best possible on these algorithms. The covered algorithms will be ER, ZER and PreZER for (2) and their corresponding parallel versions and the serial and parallel implementations of (1). Hence in all we will be implementing 8 algorithms and doing analysis on them.
-</p>
+</pre>
 
-<p>THE CHALLENGE
-Our project is different from most other tasks handled in this project. There is no reading of input data rather a large amount of data will be generated. Along with that we will to ensure the following:
-Reducing communication between different parallel 
-Distributing graph over the cores (load balancing)
-Writing efficiently to memory
-Exploiting SIMD architecture
-</p>
-<p>RESOURCES
+<pre>THE CHALLENGE
+Our project is different from most other tasks handled in this project. There is no reading of input data rather a large amount of data will be generated. Since each node is operated on independently, there is a large communication overhead to ensure connectivity amongst the nodes. Also, some of the algorithms stated above, can lead to workload imbalance, the implementation will have to be tuned to that particular algorithm. Along with that we will ensure the following:
+1. Reducing communication between different parallel 
+2. Distributing graph over the cores (load balancing)
+3. Writing efficiently to memory
+4. Exploiting SIMD architecture
+</pre>
+<pre>RESOURCES
 We will be using the code present here as our starting point:
-http://www.cs.cmu.edu/~christos/PUBLICATIONS/siam04.pdf RMAT definition
-https://github.com/farkhor/PaRMAT:
-http://www.cs.ucr.edu/~gupta/research/Publications/Comp/wsvr.pdf: PaRMAT paper
-And referencing the following two papers for implementing a parallel Barabasi-Albert method and the Kronecker Graphs:
+https://github.com/farkhor/PaRMAT
+The details of which are present in this paper:
+http://www.cs.ucr.edu/~gupta/research/Publications/Comp/wsvr.pdf
+
+Our initial understanding of RMATs was influenced by 
+http://www.cs.cmu.edu/~christos/PUBLICATIONS/siam04.pdf 
+
+And we will be referencing the following two papers for implementing a parallel Barabasi-Albert method and the Kronecker Graphs:
 http://arxiv.org/pdf/1003.3684v1.pdf Parallel Generation of Massive Scale-Free Graphs
-https://github.com/snap-stanford/snap/blob/master/examples/graphgen/graphgen.cpp
 http://karras.rutgers.edu/rg.pdf
+
+SNAP is a library out of STANFORD which is based on OpenMPI and we will be referencing their solution as well:
+https://github.com/snap-stanford/snap/blob/master/examples/graphgen/graphgen.cpp
 http://snap.stanford.edu/class/cs224w-2012/projects/cs224w-035-final.v01.pdf
-http://arxiv.org/pdf/1406.1215.pdf Parallel Algorithms for Generating Random Networks with Given Degree Sequences
-</p>
+The CL Algorithm is from this paper:
+http://arxiv.org/pdf/1406.1215.pdf
+</pre>
   
-<p>GOALS AND DELIVERABLES. 
+<pre>GOALS AND DELIVERABLES. 
 PLAN TO ACHIEVE: We hope to implement various graph generation models on both OpenMP and CUDA and be more efficient in both of them than compared to the pthread-based starter code.  Our aim is to not blindly focus on the speed of execution but also evaluate various aspects of the problem and the problems faced while parallelizing it over different architectures.
 Hence we will aim to deep-dive into various aspects of designing over the GPU & OpenMP and using the built-in constructs & pre-existing libraries to best accelerate and optimize the code.
 For the chosen task, the reason for implementing different algorithms is to focus on extracting metrics for comparison and effectively evaluate the two platforms.
 HOPE TO ACHIEVE: (1) Make the starter code (pthread based) reflect the algorithms we have implemented and then have an efficient way to compare 3 architectures over different implementations. 
-(2) Implement BA and CL and add them to the analysis</p>
+(2) Implement BA and CL and add them to the analysis</pre>
 
-<p>PLATFORM CHOICE
+<p>PLATFORM CHOICE<br>
 Our graph generation algorithms will be SPMD in nature, which will generate a lot of output data and have high inter-compute core communication. We will use a high count CPU core and A comparable GPU to be able to have an effective comparison. We will develop on GHC machines and plan to test and final benchmarking on latedays.
 Fine grain optimizations, based on CPU cache sizes or GPU shared memories will be dictated for final testing.</p>
 
-<p>SCHEDULE
+<pre>SCHEDULE
 4/9	: Implement Serial ER algos and Serial and Parallel SKG in OpenMP
 4/16	: Finish all OpenMP implementation of the 8 algorithms
 4/23	: Implement Serial ER algos and Serial and Parallel SKG in CUDA
 4/30	: Finish all CUDA implementation of the 8 algorithms
 5/7	: Finish Benchmarking and finer optimizations.
-</p>
+</pre>
 
 
       <footer class="site-footer">
