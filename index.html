@@ -32,8 +32,8 @@
 We will implement a library to generate parallel large-scale graphs using OpenMP exploiting SIMD Architecture and using CUDA on GPUS. The aim is to compare implementation complexity, speed and resource efficiency.</pre>
 
 <pre>BACKGROUND:
-Processing Real World graphs is an active research problem. The real-world complex graphs are typically very large (with millions or more vertices) and their sizes grow over time. Some researchers predict that the size of these graphs will eventually reach 1015 vertices . Unfortunately, we do not have publicly available real graphs that are large enough to test the functionality and true scalability of the graph applications A serious drawback of these models is that they are all sequential models and hence, are inadequate to use to generate the massive graphs with billions of vertices and edges.
-We plan to parallelize the generation of random graphs. There are two widely used two techniques for this.
+Processing Real World graphs is an active research problem. The real-world complex graphs are typically very large (with millions or more vertices) and their sizes grow over time. Some researchers predict that the size of these graphs will eventually reach 10^15 vertices. Unfortunately, we do not have publicly available real graphs that are large enough to test the functionality and true scalability of the graph applications. Hence, graph generation is an important field of research. There are many implementation and algortihms that exist but a serious drawback of these models is that they are all sequential models and thus, are inadequate in their usage to generate massive graphs with billions of vertices and edges.
+We plan to parallelize the generation of random graphs. There are many widely techniques for this:
 1. Stochastic Kronecker Graph (A generalization of RMAT graph generation and ER)
 2. Erdos-Renyi graph
 3. Parallel Barabasi-Albert (PBA) method
