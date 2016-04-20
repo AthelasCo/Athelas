@@ -129,6 +129,13 @@ In this regard we are still hoping to achieve implementations in openMP and CUDA
 <h2>
 <a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Results</h2>
 
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png" alt="Bug in code">
+<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/timing.png" alt="Timing results">
+We can see that the original implementation had a bug and did not actually get the indegree  curve that we were looking for in a RMAT graph. </p>
+
+<p>The clock time decreases as we increase the threads to a point after which it increases which may be because of increasing locks contention and insufficient problem size for the number of threads.
+We have a lot of parameters that we can optimize over. Say the user specifies that he wants a sorted output. In that case PKSG agorithm will be a better bet over the other normal algorithm because it outputs the edges sorted by the source vertex. Given fewer number of edges to generate  this method may be slower.  We could also for example instead of generating edges take out edges from the fully connected graph. This would significantly help with reducing collision checking time.</p>
+
 <h2>
 <a id="concerns" class="anchor" href="#concerns" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Concerns</h2>
 
