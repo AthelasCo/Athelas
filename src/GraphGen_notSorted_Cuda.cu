@@ -7,14 +7,11 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <driver_functions.h>
+#DEFINE MAX_DEPTH 128
 
 __device__ inline int updiv(int n, int d) {
     return (n+d-1)/d;
 }
-
-__constant__ GlobalConstants cuConstGraphParams;
-
-////////////////////////////////////////////////////////////////////////////////////////
 
 static inline int updivHost(int n, int d) {
     return (n+d-1)/d;
@@ -22,9 +19,12 @@ static inline int updivHost(int n, int d) {
 
 struct GlobalConstants {
 
-    double* cudaConstantProbTable;
     unsigned long long cudaDeviceNumEdges, cudaDeviceNumVertices;
+    double* cudaDeviceProbs;
+    int* output;
 };
+
+__constant__ GlobalConstants cuConstGraphParams;
 
 bool setup(
         const unsigned long long nEdges,
@@ -70,39 +70,16 @@ bool setup(
                "NVIDIA GTX 480, 670 or 780.\n");
         printf("---------------------------------------------------------\n");
     }
-    double* cudaConstantProbTable;
-    static std::default_random_engine generator;
-
     // By this time the scene should be loaded.  Now copy all the key
     // data structures into device memory so they are accessible to
     // CUDA kernels
     //
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
-    cudaMalloc(&cudaConstantProbTable , sizeof(double) * 128 * 4 );
-    // cudaMemcpy(&cudaDeviceNumEdges, sizeof(unsigned long long));
-    // cudaMemcpy(&cudaDeviceNumVertices , sizeof(unsigned long long));
-
+    double* cudaDeviceOutput = NULL;
+    cudaMalloc(&cudaDeviceOutput, sizeof(double) * 2 * nEdges);
 
     GlobalConstants params;
-    params.cudaConstantProbTable = cudaConstantProbTable;
-    params.cudaDeviceNumEdges = nEdges ;
-    params.cudaDeviceNumVertices = nVertices;
-    cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
-    // cudaMalloc(&cudaDevicePosition, sizeof(float) * 3 * numCircles);
-    // cudaMalloc(&cudaDeviceVelocity, sizeof(float) * 3 * numCircles);
-    // cudaMalloc(&cudaDeviceColor, sizeof(float) * 3 * numCircles);
-    // cudaMalloc(&cudaDeviceRadius, sizeof(float) * numCircles);
-    // cudaMalloc(&cudaDeviceImageData, sizeof(float) * 4 * image->width * image->height);
-    // cudaMalloc(&cudaDeviceCircleList, sizeof(float) * (numCircles+THREADS_PER_BLOCK) * updivHost(image->width,NUM_THREADS) * updivHost(image->height,NUM_THREADS));
-
-    // cudaMemcpy(cudaDevicePosition, position, sizeof(float) * 3 * numCircles, cudaMemcpyHostToDevice);
-    // cudaMemcpy(cudaDeviceVelocity, velocity, sizeof(float) * 3 * numCircles, cudaMemcpyHostToDevice);
-    // cudaMemcpy(cudaDeviceColor, color, sizeof(float) * 3 * numCircles, cudaMemcpyHostToDevice);
-    // cudaMemcpy(cudaDeviceRadius, radius, sizeof(float) * numCircles, cudaMemcpyHostToDevice);
-
-    // cudaMemset(cudaDeviceCircleList,0.f, sizeof(float) * numCircles * updivHost(image->width,NUM_THREADS) * updivHost(image->height,NUM_THREADS));
-
     // // Initialize parameters in constant memory.  We didn't talk about
     // // constant memory in class, but the use of read-only constant
     // // memory here is an optimization over just sticking these values
@@ -111,42 +88,29 @@ bool setup(
     // // here would have worked just as well.  See the Programmer's
     // // Guide for more information about constant memory.
 
-    // GlobalConstants params;
-    // params.sceneName = sceneName;
-    // params.numCircles = numCircles;
-    // params.imageWidth = image->width;
-    // params.imageHeight = image->height;
-    // params.position = cudaDevicePosition;
-    // params.velocity = cudaDeviceVelocity;
-    // params.color = cudaDeviceColor;
-    // params.radius = cudaDeviceRadius;
-    // params.imageData = cudaDeviceImageData;
-    // params.circleList = cudaDeviceCircleList;
 
-    // cudaMemcpyToSymbol(cuConstRendererParams, &params, sizeof(GlobalConstants));
+    //Generate Probabilities
+    std::uniform_real_distribution<double> distribution(0.0,1.0);
+    static std::default_random_engine generator;
+    double probs[MAX_DEPTH*4]:
+    for (int i = 0; i < MAX_DEPTH*4; i+=4) {
+        double A = RMAT_a * (distribution(generator)+0.5);
+        double B = RMAT_b * (distribution(generator)+0.5);
+        double C = RMAT_c *(distribution(generator)+0.5);
+        double D = (1- (RMAT_a+RMAT_b+RMAT_c)) *(distribution(generator)+0.5);
+        double abcd = A+B+C+D;
+        probs[i] = A/abcd;
+        probs[i+1] = B/abcd;
+        probs[i+2] = C/abcd;
+        probs[i+3] = D/abcd;
+    }
+    
+    params.cudaDeviceNumEdges = nEdges ;
+    params.cudaDeviceNumVertices = nVertices;
+    params.output = cudaDeviceOutput;
+    params.cudaDeviceProbs = probs;
+    cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
-    // // also need to copy over the noise lookup tables, so we can
-    // // implement noise on the GPU
-    // int* permX;
-    // int* permY;
-    // float* value1D;
-    // getNoiseTables(&permX, &permY, &value1D);
-    // cudaMemcpyToSymbol(cuConstNoiseXPermutationTable, permX, sizeof(int) * 256);
-    // cudaMemcpyToSymbol(cuConstNoiseYPermutationTable, permY, sizeof(int) * 256);
-    // cudaMemcpyToSymbol(cuConstNoise1DValueTable, value1D, sizeof(float) * 256);
-
-    // // last, copy over the color table that's used by the shading
-    // // function for circles in the snowflake demo
-
-    // float lookupTable[COLOR_MAP_SIZE][3] = {
-    //     {1.f, 1.f, 1.f},
-    //     {1.f, 1.f, 1.f},
-    //     {.8f, .9f, 1.f},
-    //     {.8f, .9f, 1.f},
-    //     {.8f, 0.8f, 1.f},
-    // };
-
-    // cudaMemcpyToSymbol(cuConstColorRamp, lookupTable, sizeof(float) * 3 * COLOR_MAP_SIZE);
     return true;
 }
 
