@@ -7,24 +7,29 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <driver_functions.h>
-#DEFINE MAX_DEPTH 128
-
-__device__ inline int updiv(int n, int d) {
-    return (n+d-1)/d;
-}
-
-static inline int updivHost(int n, int d) {
-    return (n+d-1)/d;
-}
+#include "GraphGen_notSorted_Cuda.h"
 
 struct GlobalConstants {
 
     unsigned long long cudaDeviceNumEdges, cudaDeviceNumVertices;
     double* cudaDeviceProbs;
-    int* output;
+    unsigned* cudaDeviceOutput;
 };
 
+__device__ inline int updiv(int n, int d) {
+    return (n+d-1)/d;
+}
+
 __constant__ GlobalConstants cuConstGraphParams;
+
+////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+static inline int updivHost(int n, int d) {
+    return (n+d-1)/d;
+}
+
 
 bool setup(
         const unsigned long long nEdges,
@@ -76,8 +81,11 @@ bool setup(
     //
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
-    double* cudaDeviceOutput = NULL;
-    cudaMalloc(&cudaDeviceOutput, sizeof(double) * 2 * nEdges);
+    double* cudaDeviceProbs = NULL;
+    cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH);
+
+    unsigned* cudaDeviceOutput = NULL;
+    cudaMalloc(&cudaDeviceOutput, sizeof(unsigned) * 2 * nEdges);
 
     GlobalConstants params;
     // // Initialize parameters in constant memory.  We didn't talk about
@@ -92,7 +100,7 @@ bool setup(
     //Generate Probabilities
     std::uniform_real_distribution<double> distribution(0.0,1.0);
     static std::default_random_engine generator;
-    double probs[MAX_DEPTH*4]:
+    double probs[MAX_DEPTH*4];
     for (int i = 0; i < MAX_DEPTH*4; i+=4) {
         double A = RMAT_a * (distribution(generator)+0.5);
         double B = RMAT_b * (distribution(generator)+0.5);
@@ -107,7 +115,7 @@ bool setup(
     
     params.cudaDeviceNumEdges = nEdges ;
     params.cudaDeviceNumVertices = nVertices;
-    params.output = cudaDeviceOutput;
+    params.cudaDeviceOutput = cudaDeviceOutput;
     params.cudaDeviceProbs = probs;
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
@@ -115,6 +123,8 @@ bool setup(
 }
 
 bool destroy(){
-    cudaFree(cuConstGraphParams.cudaConstantProbTable);
+    cudaFree(cuConstGraphParams.cudaDeviceProbs);
+    cudaFree(cuConstGraphParams.cudaDeviceOutput);
+    return true;
     // cudaFree(cuConstGraphParams);
 }

@@ -2,6 +2,8 @@
 #define GRAPH_GEN_NOT_SORTED_CUDA_H
 #include <fstream>
 
+#define MAX_DEPTH 128
+
 bool setup(const unsigned long long nEdges,
         const unsigned long long nVertices,
         const double RMAT_a, const double RMAT_b, const double RMAT_c,
