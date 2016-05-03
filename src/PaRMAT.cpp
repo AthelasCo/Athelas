@@ -40,7 +40,7 @@ double determine_RAM_usage( const double suggested ) {
 }
 
 int main( int argc, char ** argv ) {
-	std::cout<<setup()<<std::endl;
+
 	std::string usage =
 	"\tRequired command line arguments:\n\
 		-Number of edges. E.g., -nEdges 1021\n\
@@ -139,6 +139,7 @@ int main( int argc, char ** argv ) {
 		std::cout <<"YAY"<< "sorted"<< sorted <<"\n";
 		// Start the work.
 		--nVertices;
+		std::cout<<setup(nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)<<std::endl;
 		auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 									GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
 		if( fOutcome == EXIT_FAILURE ) {

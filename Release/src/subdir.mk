@@ -46,4 +46,4 @@ src/%.o: ../src/%.cpp
 
 
 src/%.o: ../src/%.cu
-	$(NVCC) $< $(NVCCFLAGS) -c -o $@
+	$(NVCC) $< $(NVCCFLAGS) -c -std=c++11 -o $@

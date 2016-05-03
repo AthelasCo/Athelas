@@ -17,7 +17,26 @@ static inline int updivHost(int n, int d) {
     return (n+d-1)/d;
 }
 
-bool setup(){
+struct GlobalConstants {
+
+    double* cudaConstantProbTable;
+    unsigned long long cudaDeviceNumEdges, cudaDeviceNumVertices;
+};
+
+__constant__ GlobalConstants cuConstGraphParams;
+
+
+bool setup(
+        const unsigned long long nEdges,
+        const unsigned long long nVertices,
+        const double RMAT_a, const double RMAT_b, const double RMAT_c,
+        const unsigned int nCPUWorkerThreads,
+        std::ofstream& outFile,
+        const unsigned long long standardCapacity,
+        const bool allowEdgeToSelf,
+        const bool allowDuplicateEdges,
+        const bool directedGraph,
+        const bool sorted){
     int deviceCount = 0;
     bool isFastGPU = false;
     std::string name;
@@ -51,14 +70,25 @@ bool setup(){
                "NVIDIA GTX 480, 670 or 780.\n");
         printf("---------------------------------------------------------\n");
     }
-    
+    double* cudaConstantProbTable;
+    static std::default_random_engine generator;
+
     // By this time the scene should be loaded.  Now copy all the key
     // data structures into device memory so they are accessible to
     // CUDA kernels
     //
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
+    cudaMalloc(&cudaConstantProbTable , sizeof(double) * 128 * 4 );
+    // cudaMemcpy(&cudaDeviceNumEdges, sizeof(unsigned long long));
+    // cudaMemcpy(&cudaDeviceNumVertices , sizeof(unsigned long long));
 
+
+    GlobalConstants params;
+    params.cudaConstantProbTable = cudaConstantProbTable;
+    params.cudaDeviceNumEdges = nEdges ;
+    params.cudaDeviceNumVertices = nVertices;
+    cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
     // cudaMalloc(&cudaDevicePosition, sizeof(float) * 3 * numCircles);
     // cudaMalloc(&cudaDeviceVelocity, sizeof(float) * 3 * numCircles);
     // cudaMalloc(&cudaDeviceColor, sizeof(float) * 3 * numCircles);
