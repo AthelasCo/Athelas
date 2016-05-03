@@ -40,7 +40,7 @@ double determine_RAM_usage( const double suggested ) {
 }
 
 int main( int argc, char ** argv ) {
-
+	std::cout<<setup()<<std::endl;
 	std::string usage =
 	"\tRequired command line arguments:\n\
 		-Number of edges. E.g., -nEdges 1021\n\

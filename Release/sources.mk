@@ -20,6 +20,27 @@ CPP_DEPS :=
 EXECUTABLES := 
 CXX_DEPS := 
 C_UPPER_DEPS := 
+CXX=g++ -m64
+CXXFLAGS=-O3 -Wall -g
+LIBS       :=
+FRAMEWORKS := 
+
+ifneq ($(wildcard /usr/local/cuda/.*),)
+# Building on Latedays
+NVCCFLAGS=-O3 -m64 -arch compute_20
+LIBS += GL glut cudart
+LDFLAGS=-L/usr/local/cuda/lib64/ -lcudart
+else
+# Building on Linux
+NVCCFLAGS=-O3 -m64 -arch compute_20
+LIBS += GL glut cudart
+LDFLAGS=-L/usr/local/depot/cuda-6.5/lib64/ -lcudart
+endif
+
+LDLIBS  := $(addprefix -l, $(LIBS))
+LDFRAMEWORKS := $(addprefix -framework , $(FRAMEWORKS))
+
+NVCC=nvcc
 
 # Every subdirectory with source files must be described here
 SUBDIRS := \
