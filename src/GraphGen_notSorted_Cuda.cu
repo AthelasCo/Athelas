@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <vector>
 
+#include <iostream>
+#include <cstring>
+#include <fstream>
+#include <cstdlib>
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <driver_functions.h>
@@ -22,20 +27,106 @@ __device__ inline int updiv(int n, int d) {
 
 __constant__ GlobalConstants cuConstGraphParams;
 
+__device__ __inline__ int2
+get_Edge_indices( double offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY,  std::ref(distribution), std::ref(generator),double A[],double B[],double C[],double D[]) {
+    int depth =0;
+    double sumA, sumAB, sumABC, sumAC;
+    while (rngX > 1 || rngY > 1) {
+        sumA = A[depth];
+        sumAB = sumA + B[depth];
+        sumAC = sumA + C[depth];
+        sumABC = sumAB + C[depth];
+        const double RndProb = distribution(generator);
 
+        if (rngX>1 && rngY>1) {
+          if (RndProb < sumA) { rngX/=2; rngY/=2; }
+          else if (RndProb < sumAB) { offX+=rngX/2;  rngX-=rngX/2;  rngY/=2; }
+          else if (RndProb < sumABC) { offY+=rngY/2;  rngX/=2;  rngY-=rngY/2; }
+          else { offX+=rngX/2;  offY+=rngY/2;  rngX-=rngX/2;  rngY-=rngY/2; }
+        } else
+        if (rngX>1) { // row vector
+          if (RndProb < sumAC) { rngX/=2; rngY/=2; }
+          else { offX+=rngX/2;  rngX-=rngX/2;  rngY/=2; }
+        } else
+        if (rngY>1) { // column vector
+          if (RndProb < sumAB) { rngX/=2; rngY/=2; }
+          else { offY+=rngY/2;  rngX/=2;  rngY-=rngY/2; }
+        } else{
+            std::cout<<"OH NO!\n";
+
+        }
+        depth++;
+      }
+    int2 e;
+    e.x = offX;
+    e.y = offY;
+    return e;
+}
 __global__ void KernelGenerateEdges(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted) {
     // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
     // std::vector<unsigned long long>& duplicate_indices
-    int pixelX = blockIdx.x * blockDim.x + threadIdx.x;
-    int pixelY = blockIdx.y * blockDim.y + threadIdx.y;
+    int blockIndex = blockIdx.x;
+    int threadIndex = threadIdx.x;
+    specialSqaure squ = cuConstGraphParams.squares[blockIndex];
+    __shared__ unsigned long long offX;  
+    __shared__ unsigned long long offY;  
+    __shared__ unsigned long long rngX;  
+    __shared__ unsigned long long rngY;  
+    
+    unsigned long long nEdgesToGen = squ.getnEdges();
 
-    int blockYmin = (blockIdx.y * blockDim.y) ;
-    int blockYmax = (blockIdx.y * blockDim.y) + blockDim.y;
-    int blockXmin = (blockIdx.x * blockDim.x) ;
-    int blockXmax = (blockIdx.x * blockDim.x) + blockDim.x;
+    std::default_random_engine generator;
 
-    int threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
+    std::uniform_real_distribution<double> distribution(0.0,1.0);
+    __shared__ double A[MAX_DEPTH];
+    __shared__ double B[MAX_DEPTH];
+    __shared__ double C[MAX_DEPTH];
+    __shared__ double D[MAX_DEPTH];
+
+    if (threadIndex==0)
+    {
+        for (int i = 0; i < MAX_DEPTH; ++i)
+        {
+            double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+            A[i] = prob.x;
+            B[i] = prob.y;
+            C[i] = prob.z;
+            D[i] = prob.w;
+            offX = squ.p_x_start;
+            offY = squ.squ.p_y_start;
+            rngX = squ.get_X_end()-offX;
+            rngY = squ.get_Y_end()-offY;
+        }
+
+    }
+
+    auto applyCondition = directedGraph || ( squ.offX < squ.offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
+
+
+    unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
+
+    for (unsigned i = 0; i < maxIter; ++i)
+    {
+        int edgeIdx = i * THREADS_PER_BLOCK + threadIndex;
+        int2 e;
+        if (edgeIdx < nEdgesToGen )
+        {
+
+            while(true) {
+                e = get_Edge_indices(offX, rngX, offY, rngY,  std::ref(distribution), std::ref(generator), A, B, C, D );
+                unsigned long long h_idx = e.x+squ.p_x_start;
+                unsigned long long v_idx = e.y+squ.p_y_start;
+                if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
+                    continue;
+                if (h_idx< offX || h_idx>= offX+ offY || v_idx < offY || v_idx >= offY+rngY )
+                    continue;
+                break;
+            }
+            cuConstGraphParams.cudaDeviceOutput[2*( squ.get_output_idx() + i*THREADS_PER_BLOCK + threadIndex )] = e;
+        }
+        __syncthreads();
+    }
 
     // short imageWidth = cuConstRendererParams.imageWidth;
     // short imageHeight = cuConstRendererParams.imageHeight;
@@ -216,5 +307,4 @@ bool destroy(){
     cudaFree(cuConstGraphParams.cudaDeviceProbs);
     cudaFree(cuConstGraphParams.cudaDeviceOutput);
     return true;
-    // cudaFree(cuConstGraphParams);
 }
