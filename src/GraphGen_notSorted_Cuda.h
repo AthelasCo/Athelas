@@ -1,0 +1,8 @@
+#ifndef GRAPH_GEN_NOT_SORTED_CUDA_H
+#define GRAPH_GEN_NOT_SORTED_CUDA_H
+
+bool setup();
+
+#endif // GRAPH_GEN_NOT_SORTED_CUDA_H
+
+

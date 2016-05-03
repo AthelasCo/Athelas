@@ -1,0 +1,2 @@
+make clean && make && time ./PaRMAT -nVertices 100000 -nEdges 1000000  -a 0.5 -b 0.24 -c 0.24 -sorted -noDuplicates
+../../snap/examples/netstat/netstat -i:out.txt -p:dC
