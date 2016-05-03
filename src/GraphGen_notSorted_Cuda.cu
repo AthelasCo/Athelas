@@ -12,6 +12,9 @@ __device__ inline int updiv(int n, int d) {
     return (n+d-1)/d;
 }
 
+__constant__ GlobalConstants cuConstGraphParams;
+
+////////////////////////////////////////////////////////////////////////////////////////
 
 static inline int updivHost(int n, int d) {
     return (n+d-1)/d;
@@ -22,9 +25,6 @@ struct GlobalConstants {
     double* cudaConstantProbTable;
     unsigned long long cudaDeviceNumEdges, cudaDeviceNumVertices;
 };
-
-__constant__ GlobalConstants cuConstGraphParams;
-
 
 bool setup(
         const unsigned long long nEdges,
@@ -148,4 +148,9 @@ bool setup(
 
     // cudaMemcpyToSymbol(cuConstColorRamp, lookupTable, sizeof(float) * 3 * COLOR_MAP_SIZE);
     return true;
+}
+
+bool destroy(){
+    cudaFree(cuConstGraphParams.cudaConstantProbTable);
+    // cudaFree(cuConstGraphParams);
 }
