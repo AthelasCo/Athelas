@@ -13,12 +13,23 @@
 #include <cuda_runtime.h>
 #include <driver_functions.h>
 #include "GraphGen_notSorted_Cuda.h"
+#include "internal_config.hpp"
+#include "Square.hpp"
+#include "Edge.hpp"
+#include "utils.hpp"
+
+struct cudaSquare {
+	unsigned long long X_start, X_end, Y_start, Y_end;
+	unsigned long long nEdgeToGenerate, level, recIndex_horizontal, recIndex_vertical;
+	unsigned long long thisEdgeToGenerate;
+};
 
 struct GlobalConstants {
 
     unsigned long long cudaDeviceNumEdges, cudaDeviceNumVertices;
     double* cudaDeviceProbs;
     unsigned* cudaDeviceOutput;
+    cudaSquare* cudaSquares;
 };
 
 __device__ inline int updiv(int n, int d) {
@@ -216,13 +227,12 @@ bool setup(
         const unsigned long long nEdges,
         const unsigned long long nVertices,
         const double RMAT_a, const double RMAT_b, const double RMAT_c,
-        const unsigned int nCPUWorkerThreads,
-        std::ofstream& outFile,
         const unsigned long long standardCapacity,
         const bool allowEdgeToSelf,
         const bool allowDuplicateEdges,
         const bool directedGraph,
-        const bool sorted){
+        const bool sorted
+    ){
     int deviceCount = 0;
     bool isFastGPU = false;
     std::string name;
@@ -298,6 +308,95 @@ bool setup(
     params.cudaDeviceNumVertices = nVertices;
     params.cudaDeviceOutput = cudaDeviceOutput;
     params.cudaDeviceProbs = probs;
+
+    //Generate Squares
+    std::vector<Square> squares ( 1, Square( 0, nVertices, 0, nVertices, nEdges, 0, 0, 0 ) );
+	bool allRecsAreInRange;
+	do {
+		allRecsAreInRange = true;
+
+		unsigned int recIdx = 0;
+		for( auto& rec: squares ) {
+
+			if( Eligible_RNG_Rec(rec, standardCapacity) ) {
+				// continue;
+			} else {
+				ShatterSquare(squares, RMAT_a, RMAT_b, RMAT_c, recIdx, directedGraph);
+				allRecsAreInRange = false;
+				
+				break;
+			}
+			++recIdx;
+		}
+	} while( !allRecsAreInRange );
+
+	// Making sure there are enough squares to utilize all blocks and not more
+	while( squares.size() < NUM_BLOCKS && !edgeOverflow(squares) ) {
+		// Shattering the biggest rectangle.
+		unsigned long long biggest_size = 0;
+		unsigned int biggest_index = 0;
+		for( unsigned int x = 0; x < squares.size(); ++x )
+			if( squares.at(x).getnEdges() > biggest_size ) {
+				biggest_size = squares.at(x).getnEdges();
+				biggest_index = x;
+			}
+		ShatterSquare(squares, RMAT_a, RMAT_b, RMAT_c, biggest_index, directedGraph);
+	}
+
+	if (allowDuplicateEdges)
+	{
+		int originalSize = squares.size();
+		for (int index = 0; index < originalSize; ++index)
+		{
+			//memory leak?
+			Square srcRect(squares.at(index));
+			// squares.erase(squares.begin()+index);
+		
+			int numEdgesAssigned = 0;
+			int edgesPerSquare = srcRect.getnEdges()/NUM_BLOCKS;
+			if (edgesPerSquare<20000)
+			{
+				continue;
+			}
+			for( unsigned int i = 0; i < NUM_BLOCKS-1; ++i ){
+				Square destRect(srcRect);
+				destRect.setnEdges(edgesPerSquare);
+				numEdgesAssigned+=edgesPerSquare;
+				squares.push_back(destRect);
+
+			}
+			srcRect.setnEdges( srcRect.getnEdges()-numEdgesAssigned);
+			squares.at(index) = srcRect;
+		}
+
+	
+	}
+	std::sort(squares.begin(), squares.end(),std::greater<Square>());
+
+    //unsigned long long* allSquares = (unsigned long long*) malloc(sizeof(unsigned long long)* 9 * squares.size());
+    cudaSquare* allSquares = (cudaSquare*) malloc(sizeof(cudaSquare) * squares.size());
+
+    cudaSquare* cudaDeviceSquares = NULL;
+    unsigned long long tEdges = 0;
+
+    for( unsigned int x = 0; x < squares.size(); ++x ) {
+		Square& rec = squares.at( x );
+        cudaSquare newSquare;
+        newSquare.X_start = rec.get_X_start();
+        newSquare.X_end = rec.get_X_end();
+        newSquare.Y_start = rec.get_Y_start();
+        newSquare.Y_end = rec.get_Y_end();
+        newSquare.nEdgeToGenerate = rec.getnEdges();
+        newSquare.level = 0;//TODO
+        newSquare.recIndex_horizontal = rec.get_H_idx();
+        newSquare.recIndex_vertical = rec.get_V_idx();
+        newSquare.thisEdgeToGenerate = tEdges;
+        memcpy(allSquares+x, &newSquare, sizeof(cudaSquare));
+        tEdges += rec.getnEdges();
+    }
+    cudaMalloc(&cudaDeviceSquares, sizeof(cudaSquare) * squares.size());
+    cudaMemcpy(cudaDeviceSquares, allSquares, sizeof(cudaSquare) * squares.size(), cudaMemcpyHostToDevice);
+    params.cudaSquares = cudaDeviceSquares;
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
     return true;
@@ -308,3 +407,8 @@ bool destroy(){
     cudaFree(cuConstGraphParams.cudaDeviceOutput);
     return true;
 }
+
+void getGraph(unsigned* Graph, unsigned long long nEdges) {
+    cudaMemcpy(Graph, cuConstGraphParams.cudaDeviceOutput, sizeof(unsigned)*2*nEdges, cudaMemcpyDeviceToHost);
+}
+

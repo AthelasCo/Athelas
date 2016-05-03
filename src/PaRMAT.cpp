@@ -139,7 +139,7 @@ int main( int argc, char ** argv ) {
 		std::cout <<"YAY"<< "sorted"<< sorted <<"\n";
 		// Start the work.
 		--nVertices;
-		std::cout<<setup(nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)<<std::endl;
+		std::cout<<setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)<<std::endl;
 		auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 									GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
 		if( fOutcome == EXIT_FAILURE ) {
