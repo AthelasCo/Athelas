@@ -22,6 +22,96 @@ __device__ inline int updiv(int n, int d) {
 
 __constant__ GlobalConstants cuConstGraphParams;
 
+
+__global__ void KernelGenerateEdges(const bool directedGraph,
+        const bool allowEdgeToSelf, const bool sorted) {
+    // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
+    // std::vector<unsigned long long>& duplicate_indices
+    int pixelX = blockIdx.x * blockDim.x + threadIdx.x;
+    int pixelY = blockIdx.y * blockDim.y + threadIdx.y;
+
+    int blockYmin = (blockIdx.y * blockDim.y) ;
+    int blockYmax = (blockIdx.y * blockDim.y) + blockDim.y;
+    int blockXmin = (blockIdx.x * blockDim.x) ;
+    int blockXmax = (blockIdx.x * blockDim.x) + blockDim.x;
+
+    int threadIndex = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // short imageWidth = cuConstRendererParams.imageWidth;
+    // short imageHeight = cuConstRendererParams.imageHeight;
+    // int numCircles = cuConstRendererParams.numCircles;
+
+    // float invWidth = 1.f / imageWidth;
+    // float invHeight = 1.f / imageHeight;
+
+    //  __shared__ uint shared_no_of_circles[THREADS_PER_BLOCK];
+    //  __shared__ uint shared_output[THREADS_PER_BLOCK];
+    // volatile __shared__ uint shared_scratch[2 * THREADS_PER_BLOCK];
+    // volatile __shared__ uint shared_circle_index[THREADS_PER_BLOCK];
+    // __shared__ float3 position[THREADS_PER_BLOCK];
+    // __shared__ float radii[THREADS_PER_BLOCK];
+    // __shared__ float3 colors[THREADS_PER_BLOCK];
+    // int circlesPerThread = updiv(numCircles,THREADS_PER_BLOCK);
+    // float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
+    //                                                  invHeight * (static_cast<float>(pixelY) + 0.5f));
+    // float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
+    // float4 existingColor = *imgPtr;
+    // for (int i=0; i < circlesPerThread; i++) {
+    //     int cIdx = i * THREADS_PER_BLOCK + threadIndex;
+    //     shared_no_of_circles[threadIndex] = 0;
+
+    //     if (cIdx < numCircles) {
+    //         int cIdx3 = 3 * cIdx;
+    //         float3 p = *(float3*)(&cuConstRendererParams.position[cIdx3]);
+    //         float  rad = cuConstRendererParams.radius[cIdx];
+    //         short minX = static_cast<short>(imageWidth * (p.x - rad));
+    //         short maxX = static_cast<short>(imageWidth * (p.x + rad)) + 1;
+    //         short minY = static_cast<short>(imageHeight * (p.y - rad));
+    //         short maxY = static_cast<short>(imageHeight * (p.y + rad)) + 1;
+
+
+    //             if(!(blockXmin > maxX || blockXmax < minX
+    //             || blockYmin > maxY || blockYmax < minY)){
+    //                 shared_no_of_circles[threadIndex]=1;
+    //                 radii[threadIndex] = rad;
+    //                 position[threadIndex] = p;
+    //                 colors[threadIndex] = *(float3*)(&cuConstRendererParams.color[cIdx3]);
+    //             }
+            
+    //     } 
+
+    //     __syncthreads();
+
+    //     sharedMemExclusiveScan(threadIndex, shared_no_of_circles, shared_output,
+    //                           shared_scratch, THREADS_PER_BLOCK);
+
+    //     __syncthreads();
+
+    //     int numOverBlkCircles = shared_output[THREADS_PER_BLOCK - 1];
+    //     if ( shared_no_of_circles[THREADS_PER_BLOCK - 1] == 1 )
+    //         numOverBlkCircles += 1;
+
+    //     if ( shared_no_of_circles[threadIndex] == 1 ) {
+    //         shared_circle_index[shared_output[threadIndex]] = threadIndex;
+    //     }
+
+    //     __syncthreads();
+        
+    //     for (int j=0; j < numOverBlkCircles; j++) {
+    //         int index = i * THREADS_PER_BLOCK + shared_circle_index[j];
+    //             float3 p = position[shared_circle_index[j]];
+    //             float rad = radii[shared_circle_index[j]];
+    //             float3 color = colors[shared_circle_index[j]];
+    //             shadePixel(pixelCenterNorm, p, &existingColor,rad, color);
+    //     }
+
+
+    // }
+    // *imgPtr = existingColor;
+
+
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 
 

@@ -3,6 +3,9 @@
 #include <fstream>
 
 #define MAX_DEPTH 128
+#define NUM_CUDA_THREADS 32
+#define THREADS_PER_BLOCK ((NUM_CUDA_THREADS)*(NUM_CUDA_THREADS))
+#define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
 
 bool setup(const unsigned long long nEdges,
         const unsigned long long nVertices,
