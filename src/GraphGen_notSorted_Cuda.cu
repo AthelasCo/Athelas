@@ -33,6 +33,7 @@ struct GlobalConstants {
     double* cudaDeviceProbs;
     int* cudaDeviceOutput;
     cudaSquare* cudaSquares;
+    curandState_t* cudaThreadStates;
     int nSquares;
 };
 
@@ -44,13 +45,13 @@ __constant__ GlobalConstants cuConstGraphParams;
 
 /* CUDA's random number library uses curandState_t to keep track of the seed value
    we will store a random state for every thread  */
-curandState_t* states;
 
 /* this GPU kernel function is used to initialize the random states */
-__global__ void init(unsigned int seed, curandState_t* states) {
+__global__ void init(unsigned int seed) {
 
   /* we have to initialize the state */
     // printf("seed %d\n", seed);
+  curandState_t* states = cuConstGraphParams.cudaThreadStates;
   curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
               blockIdx.x*blockDim.x+threadIdx.x, /* the sequence number should be different for each core (unless you want all
                              cores to get the same sequence of numbers for some reason - use thread id! */
@@ -102,12 +103,14 @@ get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long 
     e.y = offY- y_offset ;
     return e;
 }
-__global__ void KernelGenerateEdges(curandState_t* states, const bool directedGraph,
+__global__ void KernelGenerateEdges(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted) {
     // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
     // std::vector<unsigned long long>& duplicate_indices
+    curandState_t* states = cuConstGraphParams.cudaThreadStates;
     int blockIndex = blockIdx.x;
     int threadIndex = threadIdx.x;
+    printf("BlockIdx %d ThreadIdx %d\n",blockIdx.x, threadIdx.x);
     if (blockIndex < cuConstGraphParams.nSquares) {
         cudaSquare squ = cuConstGraphParams.cudaSquares[blockIndex];
         __shared__ unsigned long long offX;  
@@ -127,11 +130,17 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
             printf("BlockIdx %d %d\n",blockIdx.x, blockDim.x);
             for (int i = 0; i < MAX_DEPTH; ++i)
             {
-                double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
-                A[i] = prob.x;
-                B[i] = prob.y;
-                C[i] = prob.z;
-                D[i] = prob.w;
+                printf("Found Square %d\n", 4*i);
+                //double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+                //A[i] = prob.x;
+                //B[i] = prob.y;
+                //C[i] = prob.z;
+                //D[i] = prob.w;
+                A[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+                B[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i) + 1]);
+                C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
+                D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
+                printf("Found Square %d\n", 4*i);
                 offX = squ.X_start;
                 offY = squ.Y_start;
                 rngX = squ.X_start-offX;
@@ -154,6 +163,7 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
             {
 
                 while(true) {
+                    printf("Starting Edge\n");
                     e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D );
                     unsigned long long h_idx = e.x+offX;
                     unsigned long long v_idx = e.y+offY;
@@ -257,11 +267,20 @@ static inline int updivHost(int n, int d) {
 }
 
 GraphGen_notSorted_Cuda::GraphGen_notSorted_Cuda() {
-    double* cudaDeviceProbs = NULL;
-    int* cudaDeviceOutput = NULL;
-    cudaSquare* cudaDeviceSquares = NULL;
+    cudaDeviceProbs = NULL;
+    cudaDeviceOutput = NULL;
+    cudaDeviceSquares = NULL;
 }
 
+
+GraphGen_notSorted_Cuda::~GraphGen_notSorted_Cuda() {
+    if (cudaDeviceProbs) {
+        cudaFree(cudaDeviceProbs);
+        cudaFree(cudaDeviceOutput);
+        cudaFree(cudaDeviceSquares);
+        cudaFree(cudaThreadStates);
+   }
+}
 
 int GraphGen_notSorted_Cuda::setup(
         const unsigned long long nEdges,
@@ -312,13 +331,11 @@ int GraphGen_notSorted_Cuda::setup(
     //
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
-    double* cudaDeviceProbs = NULL;
     cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH);
 
 
 
 
-    int* cudaDeviceOutput = NULL;
     cudaMalloc(&cudaDeviceOutput, sizeof(int) * 2 * nEdges);
 
     GlobalConstants params;
@@ -350,7 +367,8 @@ int GraphGen_notSorted_Cuda::setup(
     params.cudaDeviceNumEdges = nEdges ;
     params.cudaDeviceNumVertices = nVertices;
     params.cudaDeviceOutput = cudaDeviceOutput;
-    params.cudaDeviceProbs = probs;
+    cudaMemcpy(cudaDeviceProbs, probs, sizeof(double) * 4 * MAX_DEPTH, cudaMemcpyHostToDevice);
+    params.cudaDeviceProbs = cudaDeviceProbs;
 
     //Generate Squares
     std::vector<Square> squares ( 1, Square( 0, nVertices, 0, nVertices, nEdges, 0, 0, 0 ) );
@@ -419,7 +437,6 @@ int GraphGen_notSorted_Cuda::setup(
     //unsigned long long* allSquares = (unsigned long long*) malloc(sizeof(unsigned long long)* 9 * squares.size());
     cudaSquare* allSquares = (cudaSquare*) malloc(sizeof(cudaSquare) * squares.size());
 
-    cudaSquare* cudaDeviceSquares = NULL;
     unsigned long long tEdges = 0;
 
     for( unsigned int x = 0; x < squares.size(); ++x ) {
@@ -441,17 +458,19 @@ int GraphGen_notSorted_Cuda::setup(
     cudaMemcpy(cudaDeviceSquares, allSquares, sizeof(cudaSquare) * squares.size(), cudaMemcpyHostToDevice);
     params.cudaSquares = cudaDeviceSquares;
     params.nSquares = squares.size();
-    cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
     /* allocate space on the GPU for the random states */
-    cudaMalloc((void**) &states, squares.size()*NUM_CUDA_THREADS * sizeof(curandState_t));
+    cudaMalloc((void**) &cudaThreadStates, squares.size()*NUM_CUDA_THREADS * sizeof(curandState_t));
+    params.cudaThreadStates = cudaThreadStates;
 
+    cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
     /* invoke the GPU to initialize all of the random states */
-    init<<<squares.size(), NUM_CUDA_THREADS>>>(time(0), states);
+    init<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
     cudaDeviceSynchronize();
 
     for( unsigned int x = 0; x < squares.size(); ++x )
         std::cout << squares.at(x);
+    std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
     return squares.size();
 }
 
@@ -461,10 +480,10 @@ void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
     dim3 gridDim(squares_size);
     printf("Hello \n");
-    KernelGenerateEdges<<<gridDim, blockDim>>>(states, directedGraph,
+    KernelGenerateEdges<<<gridDim, blockDim>>>(directedGraph,
         allowEdgeToSelf, sorted);
     cudaDeviceSynchronize();
-
+    std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
     
     printf("Bye \n");
 

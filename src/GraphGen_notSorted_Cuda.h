@@ -9,12 +9,14 @@
 #define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
 
 struct cudaSquare;
+typedef struct curandStateXORWOW curandState_t;
 
 class GraphGen_notSorted_Cuda {
 private:
     double* cudaDeviceProbs;
     int* cudaDeviceOutput;
     cudaSquare* cudaDeviceSquares;
+    curandState_t* cudaThreadStates;
 
 public:
     GraphGen_notSorted_Cuda();
@@ -27,6 +29,7 @@ public:
         const bool directedGraph,
         const bool sorted
     );
+    virtual ~GraphGen_notSorted_Cuda();
     void generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int square_size);
     void printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile);
