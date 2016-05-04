@@ -21,7 +21,7 @@ void generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int square_size);
 void printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile);
 bool destroy();
-void getGraph(unsigned* Graph, unsigned long long nEdges);
+// void getGraph(unsigned* Graph, unsigned long long nEdges);
 #endif // GRAPH_GEN_NOT_SORTED_CUDA_H
 
 

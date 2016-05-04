@@ -43,7 +43,7 @@ __constant__ GlobalConstants cuConstGraphParams;
 
 /* CUDA's random number library uses curandState_t to keep track of the seed value
    we will store a random state for every thread  */
-__constant__ curandState_t* states;
+curandState_t* states;
 
 /* this GPU kernel function is used to initialize the random states */
 __global__ void init(unsigned int seed, curandState_t* states) {
@@ -88,9 +88,10 @@ get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long 
     }
 
     int2 e;
+    printf("Edge %d %d\n", offX, offY);
+
     e.x = offX- x_offset ;
     e.y = offY- y_offset ;
-    printf("Edge %d %d\n", e.x, e.y);
     return e;
 }
 __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGraph,
@@ -125,13 +126,13 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
             offY = squ.Y_start;
             rngX = squ.X_start-offX;
             rngY = squ.Y_end-offY;
+
         }
 
     }
 
     auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
-    printf("Edge %d\n", nEdgesToGen);
 
     unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
 
@@ -426,6 +427,8 @@ int setup(
 
     /* invoke the GPU to initialize all of the random states */
     init<<<NUM_BLOCKS, 1>>>(time(0), states);
+    cudaDeviceSynchronize();
+
     for( unsigned int x = 0; x < squares.size(); ++x )
         std::cout << squares.at(x);
     return squares.size();
@@ -434,10 +437,13 @@ int setup(
 void generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int squares_size) {
     dim3 blockDim(NUM_CUDA_THREADS);
-    dim3 gridDim(squares_size);
+    // dim3 gridDim(updivHost(squares_size, blockDim.x));
+    dim3 gridDim(1);
     printf("Hello \n");
     KernelGenerateEdges<<<gridDim, blockDim>>>(states, directedGraph,
         allowEdgeToSelf, sorted);
+    cudaDeviceSynchronize();
+
     
     printf("Bye \n");
 
@@ -456,7 +462,7 @@ bool destroy(){
     return true;
 }
 
-void getGraph(unsigned* Graph, unsigned long long nEdges) {
-    cudaMemcpy(Graph, cuConstGraphParams.cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
-}
+// void getGraph(unsigned* Graph, unsigned long long nEdges) {
+//     cudaMemcpy(Graph, cuConstGraphParams.cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
+// }
 

@@ -144,8 +144,8 @@ int main( int argc, char ** argv ) {
 		std::cout<<	squares_size<<std::endl;
         generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
         unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
-        getGraph(Graph, nEdges);
-        printGraph(Graph, nEdges, outf);
+        // getGraph(Graph, nEdges);
+        // printGraph(Graph, nEdges, outf);
 		//auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 		//							GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
 		//if( fOutcome == EXIT_FAILURE ) {
