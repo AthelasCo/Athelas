@@ -50,25 +50,32 @@ curandState_t* states;
 __global__ void init(unsigned int seed, curandState_t* states) {
 
   /* we have to initialize the state */
+    // printf("seed %d\n", seed);
   curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
-              blockIdx.x, /* the sequence number should be different for each core (unless you want all
+              blockIdx.x*blockDim.x+threadIdx.x, /* the sequence number should be different for each core (unless you want all
                              cores to get the same sequence of numbers for some reason - use thread id! */
               0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
-              &states[blockIdx.x]);
+              &states[blockIdx.x*blockDim.x+threadIdx.x]);
+  // const double RndProb = curand_uniform(states + blockIdx.x);
+  // printf("RANDOM RANDOM %lf\n", RndProb);
 }
 
 __device__ __inline__ int2
-get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY, double A[],double B[],double C[],double D[], int idx) {
+get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY, double A[],double B[],double C[],double D[]) {
     unsigned long long x_offset = offX, y_offset = offY;
     int depth =0;
     double sumA, sumAB, sumABC, sumAC;
+    int idx = blockDim.x*blockIdx.x+threadIdx.x;
+    curandState_t localState = states[idx];
     while (rngX > 1 || rngY > 1) {
         sumA = A[depth];
         sumAB = sumA + B[depth];
         sumAC = sumA + C[depth];
         sumABC = sumAB + C[depth];
-        const double RndProb = curand_uniform(states +idx);
+        
 
+        const double RndProb = curand_uniform(&localState);
+        // printf("%d %d RANDOM %lf\n", blockIdx.x , threadIdx.x,RndProb );
         if (rngX>1 && rngY>1) {
           if (RndProb < sumA) { rngX/=2; rngY/=2; }
           else if (RndProb < sumAB) { offX+=rngX/2;  rngX-=rngX/2;  rngY/=2; }
@@ -87,9 +94,9 @@ get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long 
         }
         depth++;
     }
-
+    states[idx] = localState;
     int2 e;
-    printf("Edge %d %d\n", offX, offY);
+    printf("Edge %d %d\n", (int)offX, (int)offY);
 
     e.x = offX- x_offset ;
     e.y = offY- y_offset ;
@@ -117,6 +124,7 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
 
         if (threadIndex==0)
         {
+            printf("BlockIdx %d %d\n",blockIdx.x, blockDim.x);
             for (int i = 0; i < MAX_DEPTH; ++i)
             {
                 double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
@@ -145,17 +153,17 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
             if (edgeIdx < nEdgesToGen )
             {
 
-                while(true) {
-                    e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D, blockIndex );
-                    unsigned long long h_idx = e.x+offX;
-                    unsigned long long v_idx = e.y+offY;
-                    if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
-                        continue;
-                    if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY )
-                        continue;
-                    break;
+            while(true) {
+                e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D );
+                unsigned long long h_idx = e.x+offX;
+                unsigned long long v_idx = e.y+offY;
+                if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
+                    continue;
+                if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+                    printf(" recompute\n" );
+                    continue;
                 }
-                *(int2*)cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + i*THREADS_PER_BLOCK + threadIndex )] = e;
+                break;
             }
             __syncthreads();
         }
@@ -433,10 +441,10 @@ int GraphGen_notSorted_Cuda::setup(
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
     /* allocate space on the GPU for the random states */
-    cudaMalloc((void**) &states, NUM_BLOCKS * sizeof(curandState_t));
+    cudaMalloc((void**) &states, squares.size()*NUM_CUDA_THREADS * sizeof(curandState_t));
 
     /* invoke the GPU to initialize all of the random states */
-    init<<<NUM_BLOCKS, 1>>>(time(0), states);
+    init<<<squares.size(), NUM_CUDA_THREADS>>>(time(0), states);
     cudaDeviceSynchronize();
 
     for( unsigned int x = 0; x < squares.size(); ++x )
@@ -448,7 +456,7 @@ void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int squares_size) {
     dim3 blockDim(NUM_CUDA_THREADS);
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
-    dim3 gridDim(1);
+    dim3 gridDim(squares_size);
     printf("Hello \n");
     KernelGenerateEdges<<<gridDim, blockDim>>>(states, directedGraph,
         allowEdgeToSelf, sorted);
