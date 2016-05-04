@@ -9,6 +9,9 @@
 #include <fstream>
 #include <cstdlib>
 
+#include <curand.h>
+#include <curand_kernel.h>
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <driver_functions.h>
@@ -28,7 +31,7 @@ struct GlobalConstants {
 
     unsigned long long cudaDeviceNumEdges, cudaDeviceNumVertices;
     double* cudaDeviceProbs;
-    unsigned* cudaDeviceOutput;
+    int* cudaDeviceOutput;
     cudaSquare* cudaSquares;
 };
 
@@ -38,8 +41,23 @@ __device__ inline int updiv(int n, int d) {
 
 __constant__ GlobalConstants cuConstGraphParams;
 
+/* CUDA's random number library uses curandState_t to keep track of the seed value
+   we will store a random state for every thread  */
+curandState_t* states;
+
+/* this GPU kernel function is used to initialize the random states */
+__global__ void init(unsigned int seed, curandState_t* states) {
+
+  /* we have to initialize the state */
+  curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
+              blockIdx.x, /* the sequence number should be different for each core (unless you want all
+                             cores to get the same sequence of numbers for some reason - use thread id! */
+              0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
+              &states[blockIdx.x]);
+}
+
 __device__ __inline__ int2
-get_Edge_indices( double offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY,  std::ref(distribution), std::ref(generator),double A[],double B[],double C[],double D[]) {
+get_Edge_indices(curandState_t* states,  double offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY, double A[],double B[],double C[],double D[], int idx) {
     int depth =0;
     double sumA, sumAB, sumABC, sumAC;
     while (rngX > 1 || rngY > 1) {
@@ -47,7 +65,7 @@ get_Edge_indices( double offX, unsigned long long rngX, unsigned long long offY,
         sumAB = sumA + B[depth];
         sumAC = sumA + C[depth];
         sumABC = sumAB + C[depth];
-        const double RndProb = distribution(generator);
+        const double RndProb = curand_uniform(states +idx);
 
         if (rngX>1 && rngY>1) {
           if (RndProb < sumA) { rngX/=2; rngY/=2; }
@@ -63,8 +81,7 @@ get_Edge_indices( double offX, unsigned long long rngX, unsigned long long offY,
           if (RndProb < sumAB) { rngX/=2; rngY/=2; }
           else { offY+=rngY/2;  rngX/=2;  rngY-=rngY/2; }
         } else{
-            std::cout<<"OH NO!\n";
-
+            printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
         }
         depth++;
       }
@@ -73,23 +90,20 @@ get_Edge_indices( double offX, unsigned long long rngX, unsigned long long offY,
     e.y = offY;
     return e;
 }
-__global__ void KernelGenerateEdges(const bool directedGraph,
+__global__ void KernelGenerateEdges(curandState_t* states, const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted) {
     // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
     // std::vector<unsigned long long>& duplicate_indices
     int blockIndex = blockIdx.x;
     int threadIndex = threadIdx.x;
-    specialSqaure squ = cuConstGraphParams.squares[blockIndex];
+    cudaSquare squ = cuConstGraphParams.cudaSquares[blockIndex];
     __shared__ unsigned long long offX;  
     __shared__ unsigned long long offY;  
     __shared__ unsigned long long rngX;  
     __shared__ unsigned long long rngY;  
     
-    unsigned long long nEdgesToGen = squ.getnEdges();
+    unsigned long long nEdgesToGen = squ.nEdgeToGenerate;
 
-    std::default_random_engine generator;
-
-    std::uniform_real_distribution<double> distribution(0.0,1.0);
     __shared__ double A[MAX_DEPTH];
     __shared__ double B[MAX_DEPTH];
     __shared__ double C[MAX_DEPTH];
@@ -104,15 +118,15 @@ __global__ void KernelGenerateEdges(const bool directedGraph,
             B[i] = prob.y;
             C[i] = prob.z;
             D[i] = prob.w;
-            offX = squ.p_x_start;
-            offY = squ.squ.p_y_start;
-            rngX = squ.get_X_end()-offX;
-            rngY = squ.get_Y_end()-offY;
+            offX = squ.X_start;
+            offY = squ.Y_start;
+            rngX = squ.X_start-offX;
+            rngY = squ.Y_end-offY;
         }
 
     }
 
-    auto applyCondition = directedGraph || ( squ.offX < squ.offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
+    auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
 
     unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
@@ -125,16 +139,16 @@ __global__ void KernelGenerateEdges(const bool directedGraph,
         {
 
             while(true) {
-                e = get_Edge_indices(offX, rngX, offY, rngY,  std::ref(distribution), std::ref(generator), A, B, C, D );
-                unsigned long long h_idx = e.x+squ.p_x_start;
-                unsigned long long v_idx = e.y+squ.p_y_start;
+                e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D, blockIndex );
+                unsigned long long h_idx = e.x+offX;
+                unsigned long long v_idx = e.y+offY;
                 if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
                     continue;
                 if (h_idx< offX || h_idx>= offX+ offY || v_idx < offY || v_idx >= offY+rngY )
                     continue;
                 break;
             }
-            cuConstGraphParams.cudaDeviceOutput[2*( squ.get_output_idx() + i*THREADS_PER_BLOCK + threadIndex )] = e;
+            *(int2*)cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + i*THREADS_PER_BLOCK + threadIndex )] = e;
         }
         __syncthreads();
     }
@@ -275,8 +289,11 @@ bool setup(
     double* cudaDeviceProbs = NULL;
     cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH);
 
-    unsigned* cudaDeviceOutput = NULL;
-    cudaMalloc(&cudaDeviceOutput, sizeof(unsigned) * 2 * nEdges);
+
+
+
+    int* cudaDeviceOutput = NULL;
+    cudaMalloc(&cudaDeviceOutput, sizeof(int) * 2 * nEdges);
 
     GlobalConstants params;
     // // Initialize parameters in constant memory.  We didn't talk about
@@ -399,10 +416,17 @@ bool setup(
     params.cudaSquares = cudaDeviceSquares;
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
+    /* allocate space on the GPU for the random states */
+    cudaMalloc((void**) &states, NUM_BLOCKS * sizeof(curandState_t));
+
+    /* invoke the GPU to initialize all of the random states */
+    init<<<NUM_BLOCKS, 1>>>(time(0), states);
+
     return true;
 }
 
 bool destroy(){
+    cudaFree(states);
     cudaFree(cuConstGraphParams.cudaDeviceProbs);
     cudaFree(cuConstGraphParams.cudaDeviceOutput);
     return true;
