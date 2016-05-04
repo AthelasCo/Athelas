@@ -245,8 +245,14 @@ static inline int updivHost(int n, int d) {
     return (n+d-1)/d;
 }
 
+GraphGen_notSorted_Cuda::GraphGen_notSorted_Cuda() {
+    double* cudaDeviceProbs = NULL;
+    int* cudaDeviceOutput = NULL;
+    cudaSquare* cudaDeviceSquares = NULL;
+}
 
-int setup(
+
+int GraphGen_notSorted_Cuda::setup(
         const unsigned long long nEdges,
         const unsigned long long nVertices,
         const double RMAT_a, const double RMAT_b, const double RMAT_c,
@@ -438,7 +444,7 @@ int setup(
     return squares.size();
 }
 
-void generate(const bool directedGraph,
+void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int squares_size) {
     dim3 blockDim(NUM_CUDA_THREADS);
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
@@ -453,20 +459,20 @@ void generate(const bool directedGraph,
 
 }
 
-void printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
+void GraphGen_notSorted_Cuda::printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
     for (unsigned long long x = 0; x < nEdges; x++) {
         outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
     }
 }
 
-bool destroy(){
+bool GraphGen_notSorted_Cuda::destroy(){
     //cudaFree(states);
-    cudaFree(cuConstGraphParams.cudaDeviceProbs);
-    cudaFree(cuConstGraphParams.cudaDeviceOutput);
+    cudaFree(cudaDeviceProbs);
+    cudaFree(cudaDeviceOutput);
     return true;
 }
 
-// void getGraph(unsigned* Graph, unsigned long long nEdges) {
-//     cudaMemcpy(Graph, cuConstGraphParams.cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
-// }
+void GraphGen_notSorted_Cuda::getGraph(unsigned* Graph, unsigned long long nEdges) {
+     cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
+}
 

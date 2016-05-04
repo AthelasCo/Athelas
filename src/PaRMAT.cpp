@@ -139,13 +139,14 @@ int main( int argc, char ** argv ) {
 		std::cout <<"YAY"<< "sorted"<< sorted <<"\n";
 		// Start the work.
 		--nVertices;
-		int squares_size =setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted);
+        GraphGen_notSorted_Cuda* athelas = new GraphGen_notSorted_Cuda();
+		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted);
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	squares_size<<std::endl;
-        generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
+        athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
         unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
-        // getGraph(Graph, nEdges);
-        // printGraph(Graph, nEdges, outf);
+        athelas->getGraph(Graph, nEdges);
+        athelas->printGraph(Graph, nEdges, outf);
 		//auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 		//							GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
 		//if( fOutcome == EXIT_FAILURE ) {
