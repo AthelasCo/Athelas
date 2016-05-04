@@ -35,6 +35,7 @@ struct GlobalConstants {
     cudaSquare* cudaSquares;
     curandState_t* cudaThreadStates;
     int nSquares;
+    bool directedGraph, allowEdgeToSelf, sorted;
 };
 
 __device__ inline int updiv(int n, int d) {
@@ -103,14 +104,16 @@ get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long 
     e.y = offY- y_offset ;
     return e;
 }
-__global__ void KernelGenerateEdges(const bool directedGraph,
-        const bool allowEdgeToSelf, const bool sorted) {
+__global__ void KernelGenerateEdges() {
     // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
     // std::vector<unsigned long long>& duplicate_indices
+    printf("BlockIdx %d ThreadIdx %d\n",blockIdx.x, threadIdx.x);
     curandState_t* states = cuConstGraphParams.cudaThreadStates;
+    bool directedGraph = cuConstGraphParams.directedGraph;
+    bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
+    bool sorted = cuConstGraphParams.sorted;
     int blockIndex = blockIdx.x;
     int threadIndex = threadIdx.x;
-    printf("BlockIdx %d ThreadIdx %d\n",blockIdx.x, threadIdx.x);
     if (blockIndex < cuConstGraphParams.nSquares) {
         cudaSquare squ = cuConstGraphParams.cudaSquares[blockIndex];
         __shared__ unsigned long long offX;  
@@ -462,7 +465,9 @@ int GraphGen_notSorted_Cuda::setup(
     /* allocate space on the GPU for the random states */
     cudaMalloc((void**) &cudaThreadStates, squares.size()*NUM_CUDA_THREADS * sizeof(curandState_t));
     params.cudaThreadStates = cudaThreadStates;
-
+    params.allowEdgeToSelf = allowEdgeToSelf;
+    params.directedGraph = directedGraph;
+    params.sorted = sorted;
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
     /* invoke the GPU to initialize all of the random states */
     init<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
@@ -470,18 +475,17 @@ int GraphGen_notSorted_Cuda::setup(
 
     for( unsigned int x = 0; x < squares.size(); ++x )
         std::cout << squares.at(x);
-    std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
+    std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError()) << "\n";
     return squares.size();
 }
 
 void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int squares_size) {
-    dim3 blockDim(NUM_CUDA_THREADS);
+    dim3 nThreads(NUM_CUDA_THREADS,1,1);
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
-    dim3 gridDim(squares_size);
-    printf("Hello \n");
-    KernelGenerateEdges<<<gridDim, blockDim>>>(directedGraph,
-        allowEdgeToSelf, sorted);
+    dim3 nBlocks(squares_size,1,1);
+    printf("Hello launching kernel of blocks %d %d %d and tpb %d %d %d\n", nBlocks.x, nBlocks.y, nBlocks.z, nThreads.x, nThreads.y, nThreads.z);
+    KernelGenerateEdges<<<nBlocks, nThreads>>>();
     cudaDeviceSynchronize();
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
     
