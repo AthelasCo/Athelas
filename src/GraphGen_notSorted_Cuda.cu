@@ -86,8 +86,8 @@ get_Edge_indices(curandState_t* states,  double offX, unsigned long long rngX, u
         depth++;
       }
     int2 e;
-    e.x = offX;
-    e.y = offY;
+    e.x -= offX;
+    e.y -= offY;
     return e;
 }
 __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGraph,
@@ -144,7 +144,7 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
                 unsigned long long v_idx = e.y+offY;
                 if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
                     continue;
-                if (h_idx< offX || h_idx>= offX+ offY || v_idx < offY || v_idx >= offY+rngY )
+                if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY )
                     continue;
                 break;
             }
