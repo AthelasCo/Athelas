@@ -144,11 +144,11 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
         auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
 
-        unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
+        unsigned maxIter = updiv(nEdgesToGen, blockDim.x);
 
         for (unsigned i = 0; i < maxIter; ++i)
         {
-            int edgeIdx = i * THREADS_PER_BLOCK + threadIndex;
+            int edgeIdx = i * blockDim.x + threadIndex;
             int2 e;
             if (edgeIdx < nEdgesToGen )
             {
@@ -165,6 +165,8 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
                     }
                     break;
                 }
+                *(int2*)cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + i*blockDim.x + threadIndex )] = e;
+
             }
             __syncthreads();
         }
@@ -469,9 +471,9 @@ void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
 }
 
 void GraphGen_notSorted_Cuda::printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
-    for (unsigned long long x = 0; x < nEdges; x++) {
-        outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
-    }
+    // for (unsigned long long x = 0; x < nEdges; x++) {
+    //     outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
+    // }
 }
 
 bool GraphGen_notSorted_Cuda::destroy(){
@@ -482,6 +484,6 @@ bool GraphGen_notSorted_Cuda::destroy(){
 }
 
 void GraphGen_notSorted_Cuda::getGraph(unsigned* Graph, unsigned long long nEdges) {
-     cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
+     // cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
 }
 
