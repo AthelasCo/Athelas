@@ -57,7 +57,8 @@ __global__ void init(unsigned int seed, curandState_t* states) {
 }
 
 __device__ __inline__ int2
-get_Edge_indices(curandState_t* states,  double offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY, double A[],double B[],double C[],double D[], int idx) {
+get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long long rngX, unsigned long long offY, unsigned long long rngY, double A[],double B[],double C[],double D[], int idx) {
+    unsigned long long x_offset = offX, y_offset = offY;
     int depth =0;
     double sumA, sumAB, sumABC, sumAC;
     while (rngX > 1 || rngY > 1) {
@@ -84,10 +85,12 @@ get_Edge_indices(curandState_t* states,  double offX, unsigned long long rngX, u
             printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
         }
         depth++;
-      }
+    }
+
     int2 e;
-    e.x -= offX;
-    e.y -= offY;
+    e.x = offX- x_offset ;
+    e.y = offY- y_offset ;
+    printf("Edge %d %d\n", e.x, e.y);
     return e;
 }
 __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGraph,
@@ -128,6 +131,7 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
 
     auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
+    printf("Edge %d\n", nEdgesToGen);
 
     unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
 
@@ -152,6 +156,7 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
         }
         __syncthreads();
     }
+    __syncthreads();
 
     // short imageWidth = cuConstRendererParams.imageWidth;
     // short imageHeight = cuConstRendererParams.imageHeight;
@@ -237,7 +242,7 @@ static inline int updivHost(int n, int d) {
 }
 
 
-bool setup(
+int setup(
         const unsigned long long nEdges,
         const unsigned long long nVertices,
         const double RMAT_a, const double RMAT_b, const double RMAT_c,
@@ -421,17 +426,20 @@ bool setup(
 
     /* invoke the GPU to initialize all of the random states */
     init<<<NUM_BLOCKS, 1>>>(time(0), states);
-
-    return true;
+    for( unsigned int x = 0; x < squares.size(); ++x )
+        std::cout << squares.at(x);
+    return squares.size();
 }
 
 void generate(const bool directedGraph,
-        const bool allowEdgeToSelf, const bool sorted) {
+        const bool allowEdgeToSelf, const bool sorted, int squares_size) {
     dim3 blockDim(NUM_CUDA_THREADS);
-    dim3 gridDim(NUM_BLOCKS);
+    dim3 gridDim(squares_size);
+    printf("Hello \n");
     KernelGenerateEdges<<<gridDim, blockDim>>>(states, directedGraph,
         allowEdgeToSelf, sorted);
     
+    printf("Bye \n");
 
 }
 

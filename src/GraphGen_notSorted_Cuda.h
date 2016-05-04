@@ -8,7 +8,7 @@
 #define THREADS_PER_BLOCK ((NUM_CUDA_THREADS)*(NUM_CUDA_THREADS))
 #define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
 
-bool setup(const unsigned long long nEdges,
+int setup(const unsigned long long nEdges,
         const unsigned long long nVertices,
         const double RMAT_a, const double RMAT_b, const double RMAT_c,
         const unsigned long long standardCapacity,
@@ -18,7 +18,7 @@ bool setup(const unsigned long long nEdges,
         const bool sorted
     );
 void generate(const bool directedGraph,
-        const bool allowEdgeToSelf, const bool sorted);
+        const bool allowEdgeToSelf, const bool sorted, int square_size);
 void printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile);
 bool destroy();
 void getGraph(unsigned* Graph, unsigned long long nEdges);

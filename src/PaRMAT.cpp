@@ -139,9 +139,10 @@ int main( int argc, char ** argv ) {
 		std::cout <<"YAY"<< "sorted"<< sorted <<"\n";
 		// Start the work.
 		--nVertices;
+		int squares_size =setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted);
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
-		std::cout<<	setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)<<std::endl;
-        generate(directedGraph, allowDuplicateEdges, sorted);
+		std::cout<<	squares_size<<std::endl;
+        generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
         unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
         getGraph(Graph, nEdges);
         printGraph(Graph, nEdges, outf);
