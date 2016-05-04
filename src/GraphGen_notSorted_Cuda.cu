@@ -98,21 +98,21 @@ get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long 
     }
     states[idx] = localState;
     int2 e;
-    printf("Edge %d %d\n", (int)offX, (int)offY);
+    //printf("Edge %d %d\n", (int)offX, (int)offY);
 
-    e.x = offX- x_offset ;
-    e.y = offY- y_offset ;
+    e.x = offX;
+    e.y = offY;
     return e;
 }
 __global__ void KernelGenerateEdges() {
     // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
     // std::vector<unsigned long long>& duplicate_indices
-    printf("BlockIdx %d ThreadIdx %d\n",blockIdx.x, threadIdx.x);
+    //printf("BlockIdx %d ThreadIdx %d\n",blockIdx.x, threadIdx.x);
     curandState_t* states = cuConstGraphParams.cudaThreadStates;
     bool directedGraph = cuConstGraphParams.directedGraph;
     bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
     bool sorted = cuConstGraphParams.sorted;
-    int blockIndex = blockIdx.x;
+    int blockIndex = blockIdx.x+blockIdx.y;
     int threadIndex = threadIdx.x;
     if (blockIndex < cuConstGraphParams.nSquares) {
         cudaSquare squ = cuConstGraphParams.cudaSquares[blockIndex];
@@ -121,8 +121,17 @@ __global__ void KernelGenerateEdges() {
         __shared__ unsigned long long rngX;  
         __shared__ unsigned long long rngY;  
         
-        unsigned long long nEdgesToGen = squ.nEdgeToGenerate;
-
+        __shared__ unsigned long long nEdgesToGen;
+        if (threadIndex==0)
+        {
+            offX = squ.X_start;
+            offY = squ.Y_start;
+            rngX = squ.X_end-offX;
+            rngY = squ.Y_end-offY;
+            nEdgesToGen = squ.nEdgeToGenerate;
+            printf("Found Square %d with tl %d tr %d bl %d br %d and edges %d for hidx %d vid %d tE %d\n", blockIndex, offX, offY, offX+rngX, offY+rngY, nEdgesToGen,
+                                        squ.recIndex_horizontal, squ.recIndex_vertical, squ.thisEdgeToGenerate);
+        }   
         __shared__ double A[MAX_DEPTH];
         __shared__ double B[MAX_DEPTH];
         __shared__ double C[MAX_DEPTH];
@@ -130,27 +139,13 @@ __global__ void KernelGenerateEdges() {
 
         if (threadIndex==0)
         {
-            printf("BlockIdx %d %d\n",blockIdx.x, blockDim.x);
             for (int i = 0; i < MAX_DEPTH; ++i)
             {
-                printf("Found Square %d\n", 4*i);
-                //double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
-                //A[i] = prob.x;
-                //B[i] = prob.y;
-                //C[i] = prob.z;
-                //D[i] = prob.w;
                 A[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
                 B[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i) + 1]);
                 C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
                 D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
-                printf("Found Square %d\n", 4*i);
-                offX = squ.X_start;
-                offY = squ.Y_start;
-                rngX = squ.X_start-offX;
-                rngY = squ.Y_end-offY;
-
             }
-
         }
 
         auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
@@ -166,98 +161,28 @@ __global__ void KernelGenerateEdges() {
             {
 
                 while(true) {
-                    printf("Starting Edge\n");
                     e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D );
-                    unsigned long long h_idx = e.x+offX;
-                    unsigned long long v_idx = e.y+offY;
-                    if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
+                    unsigned long long h_idx = e.x;
+                    unsigned long long v_idx = e.y;
+                    if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) {// Short-circuit if it doesn't pass the test.
+                        printf("EdgeID %d fail1\n", edgeIdx );
                         continue;
-                    if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
-                        printf(" recompute\n" );
+                    } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+                        printf("EdgeID %d recompute src %d dst %d tl %d tr %d bl %d br %d \n", edgeIdx, h_idx, v_idx, offX, offY, offX+rngX, offY+rngY);
                         continue;
+                    } else {
+                        break;
                     }
-                    break;
                 }
-                *(int2*)cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + i*blockDim.x + threadIndex )] = e;
+                printf("Edges Calculated %d \t %d\n", e.x,e.y);
+                cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)] = e.x;
+                cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)+1] = e.y;
 
             }
             __syncthreads();
         }
         __syncthreads();
     }
-
-    // short imageWidth = cuConstRendererParams.imageWidth;
-    // short imageHeight = cuConstRendererParams.imageHeight;
-    // int numCircles = cuConstRendererParams.numCircles;
-
-    // float invWidth = 1.f / imageWidth;
-    // float invHeight = 1.f / imageHeight;
-
-    //  __shared__ uint shared_no_of_circles[THREADS_PER_BLOCK];
-    //  __shared__ uint shared_output[THREADS_PER_BLOCK];
-    // volatile __shared__ uint shared_scratch[2 * THREADS_PER_BLOCK];
-    // volatile __shared__ uint shared_circle_index[THREADS_PER_BLOCK];
-    // __shared__ float3 position[THREADS_PER_BLOCK];
-    // __shared__ float radii[THREADS_PER_BLOCK];
-    // __shared__ float3 colors[THREADS_PER_BLOCK];
-    // int circlesPerThread = updiv(numCircles,THREADS_PER_BLOCK);
-    // float2 pixelCenterNorm = make_float2(invWidth * (static_cast<float>(pixelX) + 0.5f),
-    //                                                  invHeight * (static_cast<float>(pixelY) + 0.5f));
-    // float4* imgPtr = (float4*)(&cuConstRendererParams.imageData[4 * (pixelY * imageWidth + pixelX)]);
-    // float4 existingColor = *imgPtr;
-    // for (int i=0; i < circlesPerThread; i++) {
-    //     int cIdx = i * THREADS_PER_BLOCK + threadIndex;
-    //     shared_no_of_circles[threadIndex] = 0;
-
-    //     if (cIdx < numCircles) {
-    //         int cIdx3 = 3 * cIdx;
-    //         float3 p = *(float3*)(&cuConstRendererParams.position[cIdx3]);
-    //         float  rad = cuConstRendererParams.radius[cIdx];
-    //         short minX = static_cast<short>(imageWidth * (p.x - rad));
-    //         short maxX = static_cast<short>(imageWidth * (p.x + rad)) + 1;
-    //         short minY = static_cast<short>(imageHeight * (p.y - rad));
-    //         short maxY = static_cast<short>(imageHeight * (p.y + rad)) + 1;
-
-
-    //             if(!(blockXmin > maxX || blockXmax < minX
-    //             || blockYmin > maxY || blockYmax < minY)){
-    //                 shared_no_of_circles[threadIndex]=1;
-    //                 radii[threadIndex] = rad;
-    //                 position[threadIndex] = p;
-    //                 colors[threadIndex] = *(float3*)(&cuConstRendererParams.color[cIdx3]);
-    //             }
-            
-    //     } 
-
-    //     __syncthreads();
-
-    //     sharedMemExclusiveScan(threadIndex, shared_no_of_circles, shared_output,
-    //                           shared_scratch, THREADS_PER_BLOCK);
-
-    //     __syncthreads();
-
-    //     int numOverBlkCircles = shared_output[THREADS_PER_BLOCK - 1];
-    //     if ( shared_no_of_circles[THREADS_PER_BLOCK - 1] == 1 )
-    //         numOverBlkCircles += 1;
-
-    //     if ( shared_no_of_circles[threadIndex] == 1 ) {
-    //         shared_circle_index[shared_output[threadIndex]] = threadIndex;
-    //     }
-
-    //     __syncthreads();
-        
-    //     for (int j=0; j < numOverBlkCircles; j++) {
-    //         int index = i * THREADS_PER_BLOCK + shared_circle_index[j];
-    //             float3 p = position[shared_circle_index[j]];
-    //             float rad = radii[shared_circle_index[j]];
-    //             float3 color = colors[shared_circle_index[j]];
-    //             shadePixel(pixelCenterNorm, p, &existingColor,rad, color);
-    //     }
-
-
-    // }
-    // *imgPtr = existingColor;
-
 
 }
 
@@ -473,8 +398,10 @@ int GraphGen_notSorted_Cuda::setup(
     init<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
     cudaDeviceSynchronize();
 
-    for( unsigned int x = 0; x < squares.size(); ++x )
+    for( unsigned int x = 0; x < squares.size(); ++x ){
         std::cout << squares.at(x);
+        std::cout << "Edges to gen : " << allSquares[x].thisEdgeToGenerate << "\n";
+    }
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError()) << "\n";
     return squares.size();
 }
@@ -494,9 +421,9 @@ void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
 }
 
 void GraphGen_notSorted_Cuda::printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
-    // for (unsigned long long x = 0; x < nEdges; x++) {
-    //     outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
-    // }
+    for (unsigned long long x = 0; x < nEdges; x++) {
+         outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
+    }
 }
 
 bool GraphGen_notSorted_Cuda::destroy(){
@@ -507,6 +434,6 @@ bool GraphGen_notSorted_Cuda::destroy(){
 }
 
 void GraphGen_notSorted_Cuda::getGraph(unsigned* Graph, unsigned long long nEdges) {
-     // cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
+     cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
 }
 
