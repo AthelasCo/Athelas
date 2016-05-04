@@ -141,15 +141,19 @@ int main( int argc, char ** argv ) {
 		--nVertices;
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)<<std::endl;
-		auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
-									GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
-		if( fOutcome == EXIT_FAILURE ) {
-			std::cerr << "Exiting." << std::endl;
-			return( EXIT_FAILURE );
-		}
+        generate(directedGraph, allowDuplicateEdges, sorted);
+        unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
+        getGraph(Graph, nEdges);
+        printGraph(Graph, nEdges, outf);
+		//auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
+		//							GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
+		//if( fOutcome == EXIT_FAILURE ) {
+		//	std::cerr << "Exiting." << std::endl;
+		//	return( EXIT_FAILURE );
+		//}
 
-		std::cout << "Done." << std::endl;
-		return( EXIT_SUCCESS );
+		//std::cout << "Done." << std::endl;
+		//return( EXIT_SUCCESS );
 
 	}
 	catch( const std::exception& strException ) {

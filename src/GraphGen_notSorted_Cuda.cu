@@ -43,7 +43,7 @@ __constant__ GlobalConstants cuConstGraphParams;
 
 /* CUDA's random number library uses curandState_t to keep track of the seed value
    we will store a random state for every thread  */
-curandState_t* states;
+__constant__ curandState_t* states;
 
 /* this GPU kernel function is used to initialize the random states */
 __global__ void init(unsigned int seed, curandState_t* states) {
@@ -425,14 +425,30 @@ bool setup(
     return true;
 }
 
+void generate(const bool directedGraph,
+        const bool allowEdgeToSelf, const bool sorted) {
+    dim3 blockDim(NUM_CUDA_THREADS);
+    dim3 gridDim(NUM_BLOCKS);
+    KernelGenerateEdges<<<gridDim, blockDim>>>(states, directedGraph,
+        allowEdgeToSelf, sorted);
+    
+
+}
+
+void printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
+    for (unsigned long long x = 0; x < nEdges; x++) {
+        outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
+    }
+}
+
 bool destroy(){
-    cudaFree(states);
+    //cudaFree(states);
     cudaFree(cuConstGraphParams.cudaDeviceProbs);
     cudaFree(cuConstGraphParams.cudaDeviceOutput);
     return true;
 }
 
 void getGraph(unsigned* Graph, unsigned long long nEdges) {
-    cudaMemcpy(Graph, cuConstGraphParams.cudaDeviceOutput, sizeof(unsigned)*2*nEdges, cudaMemcpyDeviceToHost);
+    cudaMemcpy(Graph, cuConstGraphParams.cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
 }
 
