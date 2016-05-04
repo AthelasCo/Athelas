@@ -33,6 +33,7 @@ struct GlobalConstants {
     double* cudaDeviceProbs;
     int* cudaDeviceOutput;
     cudaSquare* cudaSquares;
+    int nSquares;
 };
 
 __device__ inline int updiv(int n, int d) {
@@ -100,64 +101,66 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
     // std::vector<unsigned long long>& duplicate_indices
     int blockIndex = blockIdx.x;
     int threadIndex = threadIdx.x;
-    cudaSquare squ = cuConstGraphParams.cudaSquares[blockIndex];
-    __shared__ unsigned long long offX;  
-    __shared__ unsigned long long offY;  
-    __shared__ unsigned long long rngX;  
-    __shared__ unsigned long long rngY;  
-    
-    unsigned long long nEdgesToGen = squ.nEdgeToGenerate;
+    if (blockIndex < cuConstGraphParams.nSquares) {
+        cudaSquare squ = cuConstGraphParams.cudaSquares[blockIndex];
+        __shared__ unsigned long long offX;  
+        __shared__ unsigned long long offY;  
+        __shared__ unsigned long long rngX;  
+        __shared__ unsigned long long rngY;  
+        
+        unsigned long long nEdgesToGen = squ.nEdgeToGenerate;
 
-    __shared__ double A[MAX_DEPTH];
-    __shared__ double B[MAX_DEPTH];
-    __shared__ double C[MAX_DEPTH];
-    __shared__ double D[MAX_DEPTH];
+        __shared__ double A[MAX_DEPTH];
+        __shared__ double B[MAX_DEPTH];
+        __shared__ double C[MAX_DEPTH];
+        __shared__ double D[MAX_DEPTH];
 
-    if (threadIndex==0)
-    {
-        for (int i = 0; i < MAX_DEPTH; ++i)
+        if (threadIndex==0)
         {
-            double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
-            A[i] = prob.x;
-            B[i] = prob.y;
-            C[i] = prob.z;
-            D[i] = prob.w;
-            offX = squ.X_start;
-            offY = squ.Y_start;
-            rngX = squ.X_start-offX;
-            rngY = squ.Y_end-offY;
+            for (int i = 0; i < MAX_DEPTH; ++i)
+            {
+                double4 prob= *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+                A[i] = prob.x;
+                B[i] = prob.y;
+                C[i] = prob.z;
+                D[i] = prob.w;
+                offX = squ.X_start;
+                offY = squ.Y_start;
+                rngX = squ.X_start-offX;
+                rngY = squ.Y_end-offY;
+
+            }
 
         }
 
-    }
-
-    auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
+        auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
 
-    unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
+        unsigned maxIter = updiv(nEdgesToGen, THREADS_PER_BLOCK);
 
-    for (unsigned i = 0; i < maxIter; ++i)
-    {
-        int edgeIdx = i * THREADS_PER_BLOCK + threadIndex;
-        int2 e;
-        if (edgeIdx < nEdgesToGen )
+        for (unsigned i = 0; i < maxIter; ++i)
         {
+            int edgeIdx = i * THREADS_PER_BLOCK + threadIndex;
+            int2 e;
+            if (edgeIdx < nEdgesToGen )
+            {
 
-            while(true) {
-                e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D, blockIndex );
-                unsigned long long h_idx = e.x+offX;
-                unsigned long long v_idx = e.y+offY;
-                if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
-                    continue;
-                if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY )
-                    continue;
-                break;
+                while(true) {
+                    e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D, blockIndex );
+                    unsigned long long h_idx = e.x+offX;
+                    unsigned long long v_idx = e.y+offY;
+                    if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
+                        continue;
+                    if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY )
+                        continue;
+                    break;
+                }
+                *(int2*)cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + i*THREADS_PER_BLOCK + threadIndex )] = e;
             }
-            *(int2*)cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + i*THREADS_PER_BLOCK + threadIndex )] = e;
+            __syncthreads();
         }
         __syncthreads();
     }
-    __syncthreads();
 
     // short imageWidth = cuConstRendererParams.imageWidth;
     // short imageHeight = cuConstRendererParams.imageHeight;
@@ -420,6 +423,7 @@ int setup(
     cudaMalloc(&cudaDeviceSquares, sizeof(cudaSquare) * squares.size());
     cudaMemcpy(cudaDeviceSquares, allSquares, sizeof(cudaSquare) * squares.size(), cudaMemcpyHostToDevice);
     params.cudaSquares = cudaDeviceSquares;
+    params.nSquares = squares.size();
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
 
     /* allocate space on the GPU for the random states */
