@@ -153,17 +153,18 @@ __global__ void KernelGenerateEdges(curandState_t* states, const bool directedGr
             if (edgeIdx < nEdgesToGen )
             {
 
-            while(true) {
-                e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D );
-                unsigned long long h_idx = e.x+offX;
-                unsigned long long v_idx = e.y+offY;
-                if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
-                    continue;
-                if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
-                    printf(" recompute\n" );
-                    continue;
+                while(true) {
+                    e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D );
+                    unsigned long long h_idx = e.x+offX;
+                    unsigned long long v_idx = e.y+offY;
+                    if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) // Short-circuit if it doesn't pass the test.
+                        continue;
+                    if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+                        printf(" recompute\n" );
+                        continue;
+                    }
+                    break;
                 }
-                break;
             }
             __syncthreads();
         }
