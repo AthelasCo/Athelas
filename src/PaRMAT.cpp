@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include "GraphGen_notSorted_Cuda.h"
-
+#include "CycleTimer.h"
 #include "GraphGen_sorted.hpp"
 #include "GraphGen_notSorted.hpp"
 #include "utils.hpp"
@@ -147,8 +147,13 @@ int main( int argc, char ** argv ) {
         std::cout << "Allocating memory for graph\n";
         unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
         std::cout << "Getting the Graph\n";
+        double startTime = CycleTimer::currentSeconds();
         athelas->getGraph(Graph, nEdges);
+        double endTime = CycleTimer::currentSeconds();
+        printf("Time to fetch graph %.4f\n", endTime-startTime);
         std::cout << "Printed lines " << athelas->printGraph(Graph, nEdges, outf) << "\n";
+        double endTime2 = CycleTimer::currentSeconds();
+        printf("Time to write graph %.4f\n", endTime2-endTime);
         free(Graph);
 		//auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 		//							GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
