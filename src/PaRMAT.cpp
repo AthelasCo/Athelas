@@ -144,9 +144,12 @@ int main( int argc, char ** argv ) {
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	squares_size<<std::endl;
         athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
+        std::cout << "Allocating memory for graph\n";
         unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
+        std::cout << "Getting the Graph\n";
         athelas->getGraph(Graph, nEdges);
-        athelas->printGraph(Graph, nEdges, outf);
+        std::cout << "Printed lines " << athelas->printGraph(Graph, nEdges, outf) << "\n";
+        free(Graph);
 		//auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 		//							GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
 		//if( fOutcome == EXIT_FAILURE ) {

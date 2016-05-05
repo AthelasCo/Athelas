@@ -92,7 +92,7 @@ get_Edge_indices(curandState_t* states,  unsigned long long offX, unsigned long 
           if (RndProb < sumAB) { rngX/=2; rngY/=2; }
           else { offY+=rngY/2;  rngX/=2;  rngY-=rngY/2; }
         } else{
-            printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
+            //printf("Hello from block %d, thread %d\n", blockIdx.x, threadIdx.x);
         }
         depth++;
     }
@@ -129,8 +129,8 @@ __global__ void KernelGenerateEdges() {
             rngX = squ.X_end-offX;
             rngY = squ.Y_end-offY;
             nEdgesToGen = squ.nEdgeToGenerate;
-            printf("Found Square %d with tl %d tr %d bl %d br %d and edges %d for hidx %d vid %d tE %d\n", blockIndex, offX, offY, offX+rngX, offY+rngY, nEdgesToGen,
-                                        squ.recIndex_horizontal, squ.recIndex_vertical, squ.thisEdgeToGenerate);
+            //printf("Found Square %d with tl %d tr %d bl %d br %d and edges %d for hidx %d vid %d tE %d\n", blockIndex, offX, offY, offX+rngX, offY+rngY, nEdgesToGen,
+                                        //squ.recIndex_horizontal, squ.recIndex_vertical, squ.thisEdgeToGenerate);
         }   
         __shared__ double A[MAX_DEPTH];
         __shared__ double B[MAX_DEPTH];
@@ -147,6 +147,7 @@ __global__ void KernelGenerateEdges() {
                 D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
             }
         }
+        __syncthreads();
 
         auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
@@ -174,7 +175,7 @@ __global__ void KernelGenerateEdges() {
                         break;
                     }
                 }
-                printf("Edges Calculated %d \t %d\n", e.x,e.y);
+                //printf("Edges Calculated %d \t %d\n", e.x,e.y);
                 cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)] = e.x;
                 cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)+1] = e.y;
 
@@ -398,11 +399,12 @@ int GraphGen_notSorted_Cuda::setup(
     init<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
     cudaDeviceSynchronize();
 
-    for( unsigned int x = 0; x < squares.size(); ++x ){
-        std::cout << squares.at(x);
-        std::cout << "Edges to gen : " << allSquares[x].thisEdgeToGenerate << "\n";
-    }
+    //for( unsigned int x = 0; x < squares.size(); ++x ){
+    //    std::cout << squares.at(x);
+    //    std::cout << "Edges to gen : " << allSquares[x].thisEdgeToGenerate << "\n";
+    //}
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError()) << "\n";
+    free(allSquares);
     return squares.size();
 }
 
@@ -420,10 +422,12 @@ void GraphGen_notSorted_Cuda::generate(const bool directedGraph,
 
 }
 
-void GraphGen_notSorted_Cuda::printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
-    for (unsigned long long x = 0; x < nEdges; x++) {
+unsigned long long GraphGen_notSorted_Cuda::printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile) {
+    unsigned long long x;
+    for (x = 0; x < nEdges; x++) {
          outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
     }
+    return x;
 }
 
 bool GraphGen_notSorted_Cuda::destroy(){

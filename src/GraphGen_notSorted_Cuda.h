@@ -3,7 +3,7 @@
 #include <fstream>
 
 #define MAX_DEPTH 128
-#define NUM_CUDA_THREADS 32
+#define NUM_CUDA_THREADS 256
 #define NUM_BLOCKS 256
 #define THREADS_PER_BLOCK ((NUM_CUDA_THREADS)*(NUM_CUDA_THREADS))
 #define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
@@ -32,7 +32,7 @@ public:
     virtual ~GraphGen_notSorted_Cuda();
     void generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int square_size);
-    void printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile);
+    unsigned long long printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile);
     bool destroy();
     void getGraph(unsigned* Graph, unsigned long long nEdges);
 };
