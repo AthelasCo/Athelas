@@ -228,9 +228,9 @@ get_Edge_indices_PKSG(curandState_t* states, uint offX, uint rngX,uint offY, uin
     int idx = blockDim.x*blockIdx.x+threadIdx.x;
     // printf("reached here\n");
     curandState_t localState = states[idx];
-    // int k = ceil(log2((double)rngX));
+    int k = ceil(log2((double)rngX));
 
-    for (int depth = 0; rngX>0; ++depth, rngX/=2)
+    for (int depth = 0; depth<k; ++depth)
     {
 
         // printf("depth %d\n",depth );
@@ -258,7 +258,7 @@ get_Edge_indices_PKSG(curandState_t* states, uint offX, uint rngX,uint offY, uin
     
     int2 e;
     e.x = u;
-    e.y = v;
+    e.y = v+offY;
     return e;
 }
 
@@ -268,7 +268,6 @@ __global__ void KernelGenerateEdgesPSKG() {
     bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
     bool sorted = cuConstGraphParams.sorted;
     int blockIndex = blockIdx.x;
-    int offset = blockIndex*6;
     int threadIndex = threadIdx.x;
     if (blockIndex < cuConstGraphParams.nSquares) {
         cudaSquare squ = (cudaSquare)cuConstGraphParams.cudaSquares[blockIndex];
@@ -285,7 +284,8 @@ __global__ void KernelGenerateEdgesPSKG() {
             rngX = (uint)squ.X_end-offX;
             rngY = (uint)squ.Y_end-offY;
             nEdgesToGen = (uint)squ.nEdgeToGenerate;
-            printf("Found Square %d with tl %d tr %d bl %d br %d and edges %d for tE %d\n", offset, offX, offY, offX+rngX, offY+rngY, nEdgesToGen, (uint)squ.thisEdgeToGenerate);        }   
+            printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
+        }
         __shared__ double A[MAX_DEPTH];
         __shared__ double B[MAX_DEPTH];
         __shared__ double C[MAX_DEPTH];
@@ -317,7 +317,7 @@ __global__ void KernelGenerateEdgesPSKG() {
         {
             // shared_output[threadIdx.x] = 0;
             // shared_no_of_outdegs[threadIdx.x]= 0;
-            int srcIdx = i * blockDim.x + threadIndex;//Interleave sources
+            int srcIdx = i * blockDim.x + threadIndex+offX;//Interleave sources
             if (srcIdx < rngX+offX )
             {
                 double p=nEdgesToGen;
@@ -354,13 +354,13 @@ __global__ void KernelGenerateEdgesPSKG() {
                     e = get_Edge_indices_PKSG(states, offX, rngX, offY, rngY, srcIdx, A, B, C, D);
                     uint h_idx = e.x;
                     uint v_idx = e.y;
+                    printf(" %u Edges Calculated %d \t %d Found Square x: [%u,%u] y: [%u, %u] \n",srcIdx,  e.x,e.y, offX,  offX+rngX,offY,offY+rngY);
                     if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) {// Short-circuit if it doesn't pass the test.
                         printf("Err\n"); break;//continue;
                     //BUG: Code Hangs if below two lines included
-                    //} else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
-                    //    printf("Err2\n"); break;//continue;
+                    } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+                       printf("Err2\n"); break;//continue;
                     } else {
-                    // printf("Edges Calculated %d \t %d\n", e.x,e.y);
                     ++edgeIdx;
                     //Write to file
                     }
@@ -538,14 +538,6 @@ int GraphGen_Cuda::setup(
         newSquare.recIndex_vertical = rec.get_V_idx();
         newSquare.thisEdgeToGenerate = tEdges;
         memcpy(allSquares+x, &newSquare, sizeof(cudaSquare));
-        //*(allSquares + 6*x) = rec.get_X_start();
-        //printf("Found sq start %d %d\n", rec.get_X_start(), *(allSquares+6*x));
-        //*(allSquares + 6*x + 1)  = rec.get_X_end();
-        //*(allSquares + 6*x + 2)  = rec.get_Y_start();
-        //*(allSquares + 6*x + 3)  = rec.get_Y_end();
-        //printf("Found edges %d\n", rec.getnEdges());
-        //*(allSquares + 6*x + 4)  = rec.getnEdges();
-        //*(allSquares + 6*x + 5)  = tEdges;
         tEdges += rec.getnEdges();
     }
     printf("Copying Squres\n");
@@ -579,7 +571,12 @@ void GraphGen_Cuda::generate(const bool directedGraph,
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
     dim3 nBlocks(squares_size,1,1);
     printf("Hello launching kernel of blocks %d %d %d and tpb %d %d %d\n", nBlocks.x, nBlocks.y, nBlocks.z, nThreads.x, nThreads.y, nThreads.z);
+    if (!sorted){
     KernelGenerateEdges<<<nBlocks, nThreads>>>();
+    }else{
+       KernelGenerateEdgesPSKG<<<nBlocks, nThreads>>>(); 
+    }
+
     cudaDeviceSynchronize();
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
     
