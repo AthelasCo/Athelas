@@ -5,9 +5,11 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 CU_SRCS += \
 ../src/GraphGen_notSorted_Cuda.cu \
+../src/GraphGen_Sorted_Cuda.cu \
 
 CU_DEPS += \
 ./src/GraphGen_notSorted_Cuda.d \
+./src/GraphGen_Sorted_Cuda.d \
 
 CPP_SRCS += \
 ../src/Edge.cpp \
@@ -21,6 +23,7 @@ OBJS += \
 ./src/Edge.o \
 ./src/GraphGen_notSorted.o \
 ./src/GraphGen_notSorted_Cuda.o \
+./src/GraphGen_Sorted_Cuda.o \
 ./src/GraphGen_sorted.o \
 ./src/PaRMAT.o \
 ./src/Square.o \
@@ -30,6 +33,7 @@ CPP_DEPS += \
 ./src/Edge.d \
 ./src/GraphGen_notSorted.d \
 ./src/GraphGen_notSorted_Cuda.d \
+./src/GraphGen_Sorted_Cuda.d \
 ./src/GraphGen_sorted.d \
 ./src/PaRMAT.d \
 ./src/Square.d \
