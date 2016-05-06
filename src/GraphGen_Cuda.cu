@@ -230,7 +230,7 @@ get_Edge_indices_PKSG(curandState_t* states, uint offX, uint rngX,uint offY, uin
     curandState_t localState = states[idx];
     int k = ceil(log2((double)rngX));
 
-    for (int depth = 0; depth<k; ++depth)
+    for (int depth = 0; depth<k-1; ++depth)
     {
 
         // printf("depth %d\n",depth );
