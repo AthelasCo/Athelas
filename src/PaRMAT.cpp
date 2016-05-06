@@ -6,8 +6,7 @@
 #include <thread>
 #include <algorithm>
 #include <cstdlib>
-#include "GraphGen_notSorted_Cuda.h"
-#include "GraphGen_Sorted_Cuda.h"
+#include "GraphGen_Cuda.h"
 #include "CycleTimer.h"
 #include "GraphGen_sorted.hpp"
 #include "GraphGen_notSorted.hpp"
@@ -140,7 +139,7 @@ int main( int argc, char ** argv ) {
 		std::cout <<"YAY"<< "sorted"<< sorted <<"\n";
 		// Start the work.
 		--nVertices;
-        GraphGen_Sorted_Cuda* athelas = new GraphGen_Sorted_Cuda();
+        GraphGen_Cuda* athelas = new GraphGen_Cuda();
 		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted);
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	"No. of Squares Generated: " << squares_size<<std::endl;
