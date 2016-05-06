@@ -59,7 +59,7 @@ int main( int argc, char ** argv ) {
 
 
 	std::ofstream outf;
-	unsigned long long nEdges = 0, nVertices = 0;
+	uint nEdges = 0, nVertices = 0;
 	double a = 0.45, b = 0.22, c = 0.22;
 	unsigned int nCPUWorkerThreads = 0;
 	bool sorted = false;
@@ -67,7 +67,7 @@ int main( int argc, char ** argv ) {
 	bool allowEdgeToSelf = true;
 	bool allowDuplicateEdges = true;
 	bool directedGraph = true;
-	unsigned long long standardCapacity = 0;
+	uint standardCapacity = 0;
 
 	try{
 
@@ -118,7 +118,7 @@ int main( int argc, char ** argv ) {
 				"Specified graph may" << (allowDuplicateEdges?" ":" NOT ") << "contain duplicate edges." << "\n" <<
 				"Specified graph will be " << (directedGraph?"DIRECTED.":"UNDIRECTED.") << "\n";
 
-		auto totalSystemRAM = static_cast<unsigned long long>(getTotalSystemMemory());	// In bytes.
+		auto totalSystemRAM = static_cast<uint>(getTotalSystemMemory());	// In bytes.
 		auto availableSystemRAM = calculateAvailableRAM( totalSystemRAM, RAM_usage );	// In bytes.
 
 		standardCapacity = availableSystemRAM / (2*nCPUWorkerThreads*sizeof(Edge)); // 2 can count for vector's effect.

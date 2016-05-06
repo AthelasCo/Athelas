@@ -20,10 +20,10 @@ private:
 
 public:
     GraphGen_Cuda();
-    int setup(const unsigned long long nEdges,
-        const unsigned long long nVertices,
+    int setup(const uint nEdges,
+        const uint nVertices,
         const double RMAT_a, const double RMAT_b, const double RMAT_c,
-        const unsigned long long standardCapacity,
+        const uint standardCapacity,
         const bool allowEdgeToSelf,
         const bool allowDuplicateEdges,
         const bool directedGraph,
@@ -32,9 +32,9 @@ public:
     virtual ~GraphGen_Cuda();
     void generate(const bool directedGraph,
         const bool allowEdgeToSelf, const bool sorted, int square_size);
-    unsigned long long printGraph(unsigned *Graph, unsigned long long nEdges, std::ofstream& outFile);
+    uint printGraph(unsigned *Graph, uint nEdges, std::ofstream& outFile);
     bool destroy();
-    void getGraph(unsigned* Graph, unsigned long long nEdges);
+    void getGraph(unsigned* Graph, uint nEdges);
 };
 #endif // GRAPH_GEN_SORTED_CUDA_H
 
