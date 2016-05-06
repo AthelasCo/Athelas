@@ -82,9 +82,9 @@ get_Edge_indices(curandState_t* states,  uint offX, uint rngX, uint offY, uint r
     double sumA, sumAB, sumABC, sumAC;
     int idx = blockDim.x*blockIdx.x+threadIdx.x;
     curandState_t localState = states[idx];
-    printf("reached here\n");
+    // printf("reached here\n");
     while (rangeX > 1 || rangeY > 1) {
-        printf("depth is %u\n",depth );
+        // printf("depth is %u\n",depth );
         // printf("%d %d\n",rngX,rngY );
         sumA = A[depth];
         sumAB = sumA + B[depth];
@@ -118,7 +118,7 @@ get_Edge_indices(curandState_t* states,  uint offX, uint rngX, uint offY, uint r
 
     e.x = x_offset;
     e.y = y_offset;
-    printf("returning here\n");
+    // printf("returning here\n");
 
     return e;
 }
@@ -148,7 +148,7 @@ __global__ void KernelGenerateEdges() {
             rngX = (uint)squ.X_end-offX;
             rngY = (uint)squ.Y_end-offY;
             nEdgesToGen = (uint)squ.nEdgeToGenerate;
-            printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
+            // printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
         }   
         __shared__ double A[MAX_DEPTH];
         __shared__ double B[MAX_DEPTH];
@@ -164,7 +164,7 @@ __global__ void KernelGenerateEdges() {
                 C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
                 D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
             }
-            printf("ENDED probs\n");
+            // printf("ENDED probs\n");
         }
         __syncthreads();
 
@@ -189,12 +189,12 @@ __global__ void KernelGenerateEdges() {
                        continue;
                    } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
                        printf("EdgeID %d recompute src %d dst %d tl %d tr %d bl %d br %d \n", edgeIdx, h_idx, v_idx, offX, offY, offX+rngX, offY+rngY);
-                       break;
-                   } else {
                        continue;
+                   } else {
+                       break;
                    }
                }
-               printf("Edges Calculated %d \t %d\n", e.x,e.y);
+               // printf("Edges Calculated %d \t %d\n", e.x,e.y);
                cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)] = e.x;
                cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)+1] = e.y;
 
@@ -226,14 +226,14 @@ __device__ __inline__ int2
 get_Edge_indices_PKSG(curandState_t* states, uint offX, uint rngX,uint offY, uint rngY, uint u, double A[],double B[],double C[],double D[]) {
     uint z=u, v=0, s=0;
     int idx = blockDim.x*blockIdx.x+threadIdx.x;
-    printf("reached here\n");
+    // printf("reached here\n");
     curandState_t localState = states[idx];
     // int k = ceil(log2((double)rngX));
 
     for (int depth = 0; rngX>0; ++depth, rngX/=2)
     {
 
-        printf("depth %d\n",depth );
+        // printf("depth %d\n",depth );
       double sumAB = A[depth] +B[depth];
       double a = A[depth]/sumAB;
       double b = B[depth]/sumAB;
@@ -360,7 +360,7 @@ __global__ void KernelGenerateEdgesPSKG() {
                     //} else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
                     //    printf("Err2\n"); break;//continue;
                     } else {
-                    printf("Edges Calculated %d \t %d\n", e.x,e.y);
+                    // printf("Edges Calculated %d \t %d\n", e.x,e.y);
                     ++edgeIdx;
                     //Write to file
                     }

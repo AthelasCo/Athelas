@@ -144,17 +144,17 @@ int main( int argc, char ** argv ) {
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	"No. of Squares Generated: " << squares_size<<std::endl;
         athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
-        //std::cout << "Allocating memory for graph\n";
-        //unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);
-        //std::cout << "Getting the Graph\n";
-        //double startTime = CycleTimer::currentSeconds();
-        //athelas->getGraph(Graph, nEdges);
-        //double endTime = CycleTimer::currentSeconds();
-        //printf("Time to fetch graph %.4f\n", endTime-startTime);
-        //std::cout << "Printed lines " << athelas->printGraph(Graph, nEdges, outf) << "\n";
-        //double endTime2 = CycleTimer::currentSeconds();
-        //printf("Time to write graph %.4f\n", endTime2-endTime);
-        //free(Graph);
+        std::cout << "Allocating memory for graph\n";
+        uint* Graph = (uint*) malloc(sizeof(int) * 2 * nEdges);
+        std::cout << "Getting the Graph\n";
+        double startTime = CycleTimer::currentSeconds();
+        athelas->getGraph(Graph, nEdges);
+        double endTime = CycleTimer::currentSeconds();
+        printf("Time to fetch graph %.4f\n", endTime-startTime);
+        std::cout << "Printed lines " << athelas->printGraph(Graph, nEdges, outf) << "\n";
+        double endTime2 = CycleTimer::currentSeconds();
+        printf("Time to write graph %.4f\n", endTime2-endTime);
+        free(Graph);
 		//auto fOutcome = sorted ?	GraphGen_sorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph ) :
 		//							GraphGen_notSorted::GenerateGraph( nEdges, nVertices, a, b, c, nCPUWorkerThreads, outf, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph );
 		//if( fOutcome == EXIT_FAILURE ) {
