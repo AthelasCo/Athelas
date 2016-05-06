@@ -143,7 +143,7 @@ int main( int argc, char ** argv ) {
         GraphGen_Sorted_Cuda* athelas = new GraphGen_Sorted_Cuda();
 		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted);
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
-		std::cout<<	squares_size<<std::endl;
+		std::cout<<	"No. of Squares Generated: " << squares_size<<std::endl;
         athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
         //std::cout << "Allocating memory for graph\n";
         //unsigned* Graph = (unsigned*) malloc(sizeof(int) * 2 * nEdges);

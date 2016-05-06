@@ -112,9 +112,6 @@ __global__ void KernelGenerateEdgesPSKG() {
         __shared__ unsigned long long offY;  
         __shared__ unsigned long long rngX;  
         __shared__ unsigned long long rngY;  
-        __shared__ unsigned long long shared_no_of_outdegs[NUM_CUDA_THREADS];
-        __shared__ unsigned long long shared_output[NUM_CUDA_THREADS];
-        volatile __shared__ unsigned long long shared_scratch[2 * NUM_CUDA_THREADS];
         
         __shared__ unsigned long long nEdgesToGen;
         if (threadIndex==0)
@@ -143,6 +140,10 @@ __global__ void KernelGenerateEdgesPSKG() {
             }
         }
         __syncthreads();
+        int minN = min(NUM_CUDA_THREADS, (int)rngX);
+        __shared__ unsigned long long shared_no_of_outdegs[NUM_CUDA_THREADS];
+        __shared__ unsigned long long shared_output[NUM_CUDA_THREADS];
+        volatile __shared__ unsigned long long shared_scratch[2 * NUM_CUDA_THREADS];
 
         auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
@@ -153,13 +154,13 @@ __global__ void KernelGenerateEdgesPSKG() {
         for (unsigned i = 0; i < maxIter; ++i)
         {
             int srcIdx = i * blockDim.x + threadIndex;//Interleave sources
-            int2 e;
             if (srcIdx < rngX )
             {
                 double p=nEdgesToGen;
                 unsigned long long z = srcIdx;
                 int j=0;
-                while(rngX>0) {
+                unsigned long long localrngX = rngX;
+                while(localrngX>0) {
                     unsigned long long l = z%N;
                     double Ul = A[j]+B[j];
                     if (l==1)
@@ -168,7 +169,7 @@ __global__ void KernelGenerateEdgesPSKG() {
                     }
                     p= p * Ul;
                     z = z/N;
-                    rngX/=2;
+                    localrngX/=2;
                     j++;
                 }
                 double ep =p;
@@ -178,23 +179,29 @@ __global__ void KernelGenerateEdgesPSKG() {
                 //Perform prefix_sum
                 __syncthreads();
                 sharedMemExclusiveScan(threadIndex, shared_no_of_outdegs, shared_output,
-                              shared_scratch, NUM_CUDA_THREADS);
+                              shared_scratch, minN);
                 __syncthreads();
-                for( unsigned long long edgeIdx = 0; edgeIdx < X ; ) {
+                //BUG: Manual sum of out degrees overflows net edges to generate
+                //BUG: Prefix sum not working
+                printf("Found out degree %d for net out degree %d for nElements %d\n", X, shared_output[max(minN-1,0)], minN); 
+                unsigned long long edgeIdx;
+                for( edgeIdx = 0; edgeIdx < X ; ) {
                     int2 e;
                     e = get_Edge_indices_PKSG(states, offX, rngX, offY, rngY, srcIdx, A, B, C, D);
                     unsigned long long h_idx = e.x;
                     unsigned long long v_idx = e.y;
                     if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) {// Short-circuit if it doesn't pass the test.
-                        continue;
-                    } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
-                        continue;
+                        printf("Err\n"); break;//continue;
+                    //BUG: Code Hangs if below two lines included
+                    //} else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+                    //    printf("Err2\n"); break;//continue;
                     } else {
                     printf("Edges Calculated %d \t %d\n", e.x,e.y);
                     ++edgeIdx;
                     //Write to file
                     }
                 }
+                printf("Generated %d edges in thread %d in block %d\n", edgeIdx, threadIndex, blockIdx.x );
              }
             __syncthreads();
         }
