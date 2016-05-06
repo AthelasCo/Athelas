@@ -68,9 +68,11 @@ get_Edge_indices_PKSG(curandState_t* states, unsigned long long offX, unsigned l
     unsigned long long z=u, v=0, s=0;
     int idx = blockDim.x*blockIdx.x+threadIdx.x;
     curandState_t localState = states[idx];
-    int k = ceil(log2((double)rngX));
-    for (int depth = 0; depth < k; ++depth)
+    // int k = ceil(log2((double)rngX));
+
+    for (int depth = 0; rngX>0; ++depth, rngX/=2)
     {
+
       double sumAB = A[depth] +B[depth];
       double a = A[depth]/sumAB;
       double b = B[depth]/sumAB;
@@ -141,9 +143,9 @@ __global__ void KernelGenerateEdgesPSKG() {
         }
         __syncthreads();
         int minN = min(NUM_CUDA_THREADS, (int)rngX);
-        __shared__ unsigned long long shared_no_of_outdegs[NUM_CUDA_THREADS];
-        __shared__ unsigned long long shared_output[NUM_CUDA_THREADS];
-        volatile __shared__ unsigned long long shared_scratch[2 * NUM_CUDA_THREADS];
+        __shared__ uint shared_no_of_outdegs[NUM_CUDA_THREADS];
+        __shared__ uint shared_output[NUM_CUDA_THREADS];
+        volatile __shared__ uint shared_scratch[2 * NUM_CUDA_THREADS];
 
         auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
@@ -153,8 +155,10 @@ __global__ void KernelGenerateEdgesPSKG() {
 
         for (unsigned i = 0; i < maxIter; ++i)
         {
+            // shared_output[threadIdx.x] = 0;
+            // shared_no_of_outdegs[threadIdx.x]= 0;
             int srcIdx = i * blockDim.x + threadIndex;//Interleave sources
-            if (srcIdx < rngX )
+            if (srcIdx < rngX+offX )
             {
                 double p=nEdgesToGen;
                 unsigned long long z = srcIdx;
@@ -183,7 +187,7 @@ __global__ void KernelGenerateEdgesPSKG() {
                 __syncthreads();
                 //BUG: Manual sum of out degrees overflows net edges to generate
                 //BUG: Prefix sum not working
-                printf("Found out degree %d for net out degree %d for nElements %d\n", X, shared_output[max(minN-1,0)], minN); 
+                // printf("Found out degree %d for net out degree %d for nElements %d\n", X, shared_output[max(minN-1,0)], minN); 
                 unsigned long long edgeIdx;
                 for( edgeIdx = 0; edgeIdx < X ; ) {
                     int2 e;
