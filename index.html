@@ -1,25 +1,34 @@
-<!DOCTYPE html>
-<html lang="en-us">
+<!doctype html>
+<html>
   <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
     <title>Athelas by AthelasCo</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
   </head>
   <body>
-    <section class="page-header">
-      <h1 class="project-name">Athelas</h1>
-      <h2 class="project-tagline"></h2>
-      <a href="https://github.com/AthelasCo/Athelas" class="btn">View on GitHub</a>
-      <a href="https://github.com/AthelasCo/Athelas/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/AthelasCo/Athelas/tarball/master" class="btn">Download .tar.gz</a>
-    </section>
+    <div class="wrapper">
+      <header>
+        <h1>Athelas</h1>
+        <p></p>
 
-    <section class="main-content">
-      <h1>
+        <p class="view"><a href="https://github.com/AthelasCo/Athelas">View the Project on GitHub <small>AthelasCo/Athelas</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/AthelasCo/Athelas/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/AthelasCo/Athelas/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/AthelasCo/Athelas">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
 <a id="a-parallel-random-graph-generation-library" class="anchor" href="#a-parallel-random-graph-generation-library" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>A parallel random graph generation library.</h1>
 
 <pre><code>                                        By
@@ -30,9 +39,7 @@
 <h3>
 <a id="summary" class="anchor" href="#summary" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SUMMARY:</h3>
 
-<p>We will implement a library to generate parallel large-scale graphs using OpenMP exploiting SIMD Architecture and using CUDA on GPUS. The aim is to compare implementation complexity, speed and resource efficiency.</p>
-
-<p>NOTE: MID_SECTION_REPORT data included <a href="#MID_REPORT_SECTION">below.</a></p>
+<p>We will implement a library to generate parallel large-scale graphs using OpenMP/pThreads exploiting CPU Architecture and using CUDA on GPUS. The aim is to compare implementation complexity, speed and resource efficiency.</p>
 
 <h3>
 <a id="background" class="anchor" href="#background" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>BACKGROUND:</h3>
@@ -46,22 +53,46 @@
 <li>CL method (Chung Lu)</li>
 </ul>
 
-<p>Though SKG method generalizes ER there are specific method for ER that can be made to run faster.  We plan to analyze these methods. Each of these methods will present different challenges and we hope to touch upon different aspects of parallel operations.</p>
+<p>To concentrate best on our aim of comparison of the implementation libraries, we implemented the SKG algorithm which is a generalization on the ER algorithm. The idea was to best optimize this algorithm over the various libraries to analyze the implementation and speedup.</p>
 
-<p>To concentrate best on our aim of comparison of the two implementation libraries, we plan to implement various algorithms of (1) and (2) and optimize the best possible on these algorithms. The covered algorithms will be ER, ZER and PreZER for (2) and their corresponding parallel versions and the serial and parallel implementations of (1). Hence in all we will be implementing 8 algorithms and doing analysis on them.
-We will be using SNAP and PaRMAT libraries for initial benchmarking. The evaluation of our algorithms and benchmarking will be implemented by us. The checker functions will ensure that the properties for RMATs are maintained.
-Both these libraries provide different options for generations of graphs (directed vs. undirected, sorted vs. unsorted), we will be modelling our interface to support the same. To get optimal performance, we plan to tune our kernels/functions to take such parameters in to account.</p>
+<p>We used SNAP and PaRMAT libraries for initial benchmarking and as code base. The evaluation of our algorithms and benchmarking was implemented by us. The checker functions to ensure that the properties for RMATs were ported from SNAP. Both these libraries provide different options for generations of graphs (directed vs. undirected, sorted vs. unsorted), we modeled our interface to support the same. To get optimal performance, we tuned our kernels/functions to take such parameters in to account.</p>
 
 <h3>
-<a id="the-challenge" class="anchor" href="#the-challenge" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>THE CHALLENGE</h3>
+<a id="the-challenge-and-the-tackle" class="anchor" href="#the-challenge-and-the-tackle" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>THE CHALLENGE AND THE TACKLE</h3>
 
-<p>Our project is different from most other tasks handled in this project. There is no reading of input data rather a large amount of data will be generated. Since each node is operated on independently, there is a large communication overhead to ensure connectivity amongst the nodes. Also, some of the algorithms stated above, can lead to workload imbalance, the implementation will have to be tuned to that particular algorithm. Along with that we will ensure the following:
-1. Reducing communication between different parallel 
-2. Distributing graph over the cores (load balancing)
-3. Writing efficiently to memory
-4. Exploiting SIMD architecture</p>
+<p>Our project is different from most other tasks handled in this course. There is no reading of input data, rather a large amount of data is generated. Since each node is operated on independently, there is a large communication overhead to ensure connectivity amongst the nodes. Also, there is an inherent workload imbalance, the implementation had to be tuned to that particular use-cases. Along with that we ensured the following:</p>
 
-<p>Since this is a project involving analysis of various aspects of CUDA and OpenMP, it will be important to explore all facets of these languages. We aim to have code that reflects the best way to implement a particular algorithm in that library.</p>
+<ol>
+<li>Reducing communication between different parallel elements</li>
+<li>Distributing graph over the cores (load balancing)</li>
+<li>Writing efficiently to memory</li>
+<li>Compressed representation of the graph</li>
+</ol>
+
+<h2>
+<a id="approach" class="anchor" href="#approach" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>APPROACH</h2>
+
+<p>There are three parts in the approach we adopted:
+(1) A Serial CPU Square Generation
+All three implementations share a serial section in which the input matrix of edges to be generated is divided up in squares according to the probability distributions and these squares get a connection degree associated with them. The division can be seen in the figure.</p>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/SQ.png?raw=true" alt="SQ"></p>
+
+<p>NOTE: In our analysis, we have excluded timing of this section as a fixed overhead.</p>
+
+<p>The next part was implemented differently according to the various optimizations available in the three libraries.</p>
+
+<p>(2.a) PTHREADs based Graph Generation</p>
+
+<p>(2.b) openMP Graph Generation</p>
+
+<p>(2.c) CUDA Graph Generation</p>
+
+<h3>
+<a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESULTS</h3>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png?raw=true" alt="Bug in code">
+We can see that the original implementation(in red) had a bug and did not actually get the in-degree  curve that we were looking for in a RMAT graph(our implementation in purple). This was an algorithmic change that was needed to ensure correctness as reported by SNAP. The same is ensured across implementations.</p>
 
 <h3>
 <a id="resources" class="anchor" href="#resources" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESOURCES</h3>
@@ -85,87 +116,13 @@ and</li>
 <li><p>The CL Algorithm is from this paper:</p></li>
 <li><a href="http://arxiv.org/pdf/1406.1215.pdf">Alam, Maksudul, and Maleq Khan. "Parallel Algorithms for Generating Random Networks with Given Degree Sequences." International Journal of Parallel Programming (2014): 1-19.</a></li>
 </ul>
-
-<h3>
-<a id="goals-and-deliverables" class="anchor" href="#goals-and-deliverables" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>GOALS AND DELIVERABLES.</h3>
-
-<p>PLAN TO ACHIEVE: We hope to implement various graph generation models on both OpenMP and CUDA and be more efficient in both of them than compared to the pthread-based starter code.  Our aim is to not blindly focus on the speed of execution but also evaluate various aspects of the problem and the problems faced while parallelizing it over different architectures.
-Hence we will aim to deep-dive into various aspects of designing over the GPU &amp; OpenMP and using the built-in constructs &amp; pre-existing libraries to best accelerate and optimize the code.
-For the chosen task, the reason for implementing different algorithms is to focus on extracting metrics for comparison and effectively evaluate the two platforms.</p>
-
-<h3>
-<a id="hope-to-achieve" class="anchor" href="#hope-to-achieve" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>HOPE TO ACHIEVE:</h3>
-
-<p>1) Make the starter code (pthread based) reflect the algorithms we have implemented and then have an efficient way to compare 3 architectures over different implementations. </p>
-
-<p>2) Implement BA and CL and add them to the analysis</p>
-
-<h3>
-<a id="platform-choice" class="anchor" href="#platform-choice" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>PLATFORM CHOICE</h3>
-
-<p>Our graph generation algorithms will be SPMD in nature, which will generate a lot of output data and have high inter-compute core communication. We will use a high count CPU core and A comparable GPU to be able to have an effective comparison. We will develop on GHC machines and plan to test and final benchmarking on latedays.
-Fine grain optimizations, based on CPU cache sizes or GPU shared memories will be dictated for final testing.</p>
-
-<h2>
-<a id="mid_report_section" class="anchor" href="#mid_report_section" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>MID_REPORT_SECTION</h2>
-
-<h3>
-<a id="the-story-so-far" class="anchor" href="#the-story-so-far" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>The Story So Far</h3>
-
-<p>Starting with the implementation of PaRMat, we first ensured the correctness of the graph by analyzing the graphs generated by the library using implementation of SNAP and the graph analysis tools present in that. We fixed a sampling bug and added random noise during the sampling phase to better match the degree distribution of the generated graphs to graphs mentioned in the RMAT paper and those generated by SNAP.
-Further, to ensure proper load balancing, especially for skewed probability distribution, we implemented a different thread scheduling scheme and a different rectangle generation scheme to distribute work equally among all threads. To improve the graph generation quality, we also implemented the poisson SKG algorithm.
-Once pThreads implementation was stable and scaling to large graphs and multi-threads. We implemented the OpenMP implementation of the code to evaluate the speedup using the library. The major bottleneck in this approach seems to be FileIO and the time spent by threads in trying to acquire locks to serially write to the file from each thread. As we were optimizing for throughput and memory efficiency, this approach was suited. However, going ahead, we might change this and take a memory hit.</p>
-
-<h3>
-<a id="of-goals-and-deliveries" class="anchor" href="#of-goals-and-deliveries" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Of Goals and Deliveries</h3>
-
-<p>As per the initial published plan, we should have finished an OpenMP implementation of the library. We are a little behind schedule in this regard as we are facing issues with serial fileIO. However, once that is ironed out, we should be able to deliver the initial promised library implementations in openMP and CUDA.
-We want to concentrate on improving the analysis and performance of the current algorithm and not focus on implementing new algorithms. As the scope of the project is to focus on the parallelism aspect of a particular algorithm and not algorithmic improvements themselves, we want to focus on the baseline code that we have and implement as many parallelism smarts.
-In this regard we are still hoping to achieve implementations in openMP and CUDA and have a strong comparison between the two.</p>
-
-<h3>
-<a id="show-and-tell" class="anchor" href="#show-and-tell" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Show and Tell</h3>
-
-<p>For the parallelism competition, we will be displaying our findings and analysis. We have some plans of building a demo of how each thread is load balancing and building the graph, but that is strictly optional if time permits.</p>
-
-<h3>
-<a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Results</h3>
-
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png?raw=true" alt="Bug in code">
-<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/timing.png?raw=true" alt="Timing results">
-We can see that the original implementation(in red) had a bug and did not actually get the in-degree  curve that we were looking for in a RMAT graph(our implementation in purple). </p>
-
-<p>The clock time decreases as we increase the threads to a point after which it increases which may be because of increasing locks contention and insufficient problem size for the number of threads.
-We have a lot of parameters that we can optimize over. Say the user specifies that he wants a sorted output. In that case PKSG algorithm will be a better bet over the other normal algorithm because it outputs the edges sorted by the source vertex. Given fewer number of edges to generate  this method may be slower.  We could also for example instead of generating edges take out edges from the fully connected graph. This would significantly help with reducing collision checking time.</p>
-
-<h3>
-<a id="concerns" class="anchor" href="#concerns" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Concerns</h3>
-
-<ol>
-<li>FileIO: By our current estimates, FileIO is about 33\% of CPU compute time. This can prove to be the long pole as this will prove to be bandwidth bound and can lead to openMP ineffectiveness.</li>
-<li>Arithmetic Intensity: The arithmetic intensity of the graph generation is rather low. The edge assignment is based on lookups from a probability distribution and recursive assignment to a section of the adjacency matrix. We need to optimize these tasks further.</li>
-<li>Optimizing over Different Parameters: The graph generation can have many broad categories: directed/undirected, sorted/unsorted, duplicate/non-duplicate edges, size of the graph, self edges, etc. Given so many parameters, it is rather difficult to formulate a general strategy to optimize over all these parameters. </li>
-</ol>
-
-<h2>
-<a id="schedule-updated-for-project-checkpoint" class="anchor" href="#schedule-updated-for-project-checkpoint" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SCHEDULE: Updated for Project Checkpoint</h2>
-
-<ul>
-<li>4/23    : Fix OpenMP Mutex Bottleneck for FileIO</li>
-<li>4/27    : Initial CUDA Implementation</li>
-<li>4/29    : Finish all CUDA implementation of the algorithm</li>
-<li>5/4     : Finish compression for IO</li>
-<li>5/7     : Finish Benchmarking and finer optimizations.</li>
-</ul>
-
-      <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/AthelasCo/Athelas">Athelas</a> is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a>.</span>
-
-        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
       </footer>
-
-    </section>
-
-  
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
   </body>
 </html>
