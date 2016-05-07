@@ -217,7 +217,7 @@ __global__ void KernelGenerateEdgesCompressed() {
     bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
     bool sorted = cuConstGraphParams.sorted;
     int blockIndex = blockIdx.x;
-    int offset = blockIndex;
+    // int offset = blockIndex;
     int threadIndex = threadIdx.x;
     if (blockIndex < cuConstGraphParams.nSquares) {
         cudaSquare squ = (cudaSquare)cuConstGraphParams.cudaSquares[blockIndex];
@@ -225,7 +225,7 @@ __global__ void KernelGenerateEdgesCompressed() {
         __shared__ uint offY;  
         __shared__ uint rngX;  
         __shared__ uint rngY;  
-        
+        __shared__ uint offset;
         __shared__ uint nEdgesToGen;
         if (threadIndex==0)
         {
@@ -234,7 +234,9 @@ __global__ void KernelGenerateEdgesCompressed() {
             rngX = (uint)squ.X_end-offX;
             rngY = (uint)squ.Y_end-offY;
             nEdgesToGen = (uint)squ.nEdgeToGenerate;
-            // printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
+            offset = (uint)squ.thisEdgeToGenerate;
+
+            // printf("Found Square x: [%u,%u] y: [%u, %u] %u %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen, offset);
         }   
         __shared__ double A[MAX_DEPTH];
         __shared__ double B[MAX_DEPTH];
@@ -281,9 +283,9 @@ __global__ void KernelGenerateEdgesCompressed() {
                        break;
                    }
                }
-               // printf("Edges Calculated %d \t %d\n", e.x,e.y);
+               // printf("Edges Calculated %d \t %d %u Square %d %d \n", e.x,e.y, (e.x-offX)*rngY+(e.y - offY), blockIndex, offset);
                shared_edges[edgeIdx] = (e.x-offX)*rngY+(e.y - offY);
-               cuConstGraphParams.cudaDeviceCompressedOutput[( squ.thisEdgeToGenerate + edgeIdx)] = shared_edges[edgeIdx];
+               cuConstGraphParams.cudaDeviceCompressedOutput[( offset + edgeIdx)] = shared_edges[edgeIdx];
                // cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)+1] = e.y;
 
            }
@@ -523,10 +525,11 @@ int GraphGen_Cuda::setup(
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
     cudacall(cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH));
-
+    if(!compressed){
     cudacall(cudaMalloc(&cudaDeviceOutput, sizeof(int) * 2 * nEdges));
+    }else{
     cudacall(cudaMalloc(&cudaDeviceCompressedOutput, sizeof(uint) * nEdges));
-
+    }
     GlobalConstants params;
 
     //Generate Probabilities
@@ -682,11 +685,33 @@ void GraphGen_Cuda::generate(const bool directedGraph,
 }
 
 uint GraphGen_Cuda::printGraph(unsigned *Graph, uint nEdges, std::ofstream& outFile) {
+  if (!compressed)
+  {
     uint x;
     for (x = 0; x < nEdges; x++) {
          outFile << Graph[2*x] << "\t" << Graph[2*x+1] << "\n";
     }
     return x;
+  }
+  else{
+    uint offset=0;
+    for (int i = 0; i < nSquares; ++i)
+    {
+      cudaSquare cs = allSquares[i];
+      // std::cout<<i<<"offset"<<cs.thisEdgeToGenerate<<std::endl;
+      for (uint j = 0; j < cs.nEdgeToGenerate; ++j)
+      {
+        uint rngY = (cs.Y_end-cs.Y_start);
+        uint offX = cs.X_start;
+        uint offY = cs.Y_start;
+        // std::cout<<Graph[offset]<<" SQUARE "<< i<<"\n";
+        outFile << Graph[offset]/rngY+offX << "\t" << Graph[offset]%rngY+offY << "\n";
+        offset++;
+      }
+    }
+    return offset;
+  }
+    
 }
 
 bool GraphGen_Cuda::destroy(){
@@ -700,8 +725,9 @@ bool GraphGen_Cuda::destroy(){
 void GraphGen_Cuda::getGraph(unsigned* Graph, uint nEdges) {
   if (!compressed)
      cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
-  else
+  else{
      cudaMemcpy(Graph, cudaDeviceCompressedOutput, sizeof(uint)*nEdges, cudaMemcpyDeviceToHost);
+   }
 }
 
 
