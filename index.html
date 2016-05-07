@@ -102,7 +102,8 @@ We can see that the original implementation(in red) had a bug and did not actual
 <ol>
 <li>OpenMP and PTHREADs have only the graph generation time mentioned with FILE IO being kept separate. We are in the process of optimizing FILE IO for these and the times will be updated over the weekend.</li>
 <li>CUDA runtimes includes time for generation and the data transfer time HtoD. As above FILE IO is in the process of being optimized through parallel stream execution and will be updated over the weekend.</li>
-<li>All profiling done w=using CycleTimer in CPU and NVPROF on GPU. Graph being generated is with 100k vertices and 1 million edges unless stated otherwise.</li>
+<li>All profiling done was using CycleTimer in CPU and NVPROF on GPU. Graph being generated is with 100k vertices and 1 million edges unless stated otherwise.</li>
+<li>The comparisons are pre-compression. Comparison data is presented for CUDA in the last section.</li>
 </ol>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compare.png?raw=true" alt="WL">
@@ -114,6 +115,12 @@ The workload distribution across probability distribution can be seen above. As 
 The distribution of the Kernel runtime to device transfer times indicates that as the workload becomes more uneven the kernel takes more time to execute, similarly, as the graph becomes bigger, the data times start dominating. The runtimes are linearly increasing as the no. of nodes increase which is also expected as the each kernel instance will execute for longer uniformly
 <img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling2.png?raw=true" alt="CUDAScale">
 <img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling.png?raw=true" alt="CUDAScale"></p>
+
+<h4>
+<a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h4>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress.png?raw=true" alt="CUDACompress">
+The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 3x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU.</p>
 
 <p>Aside on programming complexity:</p>
 
