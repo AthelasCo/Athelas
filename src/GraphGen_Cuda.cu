@@ -61,10 +61,11 @@ __constant__ GlobalConstants cuConstGraphParams;
    we will store a random state for every thread  */
 
 /* this GPU kernel function is used to initialize the random states */
-__global__ void init(unsigned int seed) {
+__device__ __inline__ void initSorted() {
 
   /* we have to initialize the state */
     // printf("seed %d\n", seed);
+  unsigned int seed = (unsigned int) clock64();
   curandState_t* states = cuConstGraphParams.cudaThreadStates;
   curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
               blockIdx.x*blockDim.x+threadIdx.x, /* the sequence number should be different for each core (unless you want all
@@ -74,7 +75,6 @@ __global__ void init(unsigned int seed) {
   // const double RndProb = curand_uniform(states + blockIdx.x);
   // printf("RANDOM RANDOM %lf\n", RndProb);
 }
-
 __device__ __inline__ int2
 get_Edge_indices(curandState_t* states,  uint offX, uint rngX, uint offY, uint rngY, double A[],double B[],double C[],double D[]) {
     uint x_offset = offX, y_offset = offY;
@@ -160,10 +160,11 @@ __global__ void KernelGenerateEdges() {
         {
             for (int i = 0; i < MAX_DEPTH; ++i)
             {
-                A[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
-                B[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i) + 1]);
-                C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
-                D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
+                double4 prob = *(double4*)(&cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+                A[i] = prob.x;
+                B[i] = prob.y;
+                C[i] = prob.z;
+                D[i] = prob.w;
             }
             // printf("ENDED probs\n");
         }
@@ -220,6 +221,7 @@ __global__ void KernelGenerateEdgesCompressed() {
     // int offset = blockIndex;
     int threadIndex = threadIdx.x;
     if (blockIndex < cuConstGraphParams.nSquares) {
+        initSorted();
         cudaSquare squ = (cudaSquare)cuConstGraphParams.cudaSquares[blockIndex];
         __shared__ uint offX;  
         __shared__ uint offY;  
@@ -297,20 +299,7 @@ __global__ void KernelGenerateEdgesCompressed() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
-/* this GPU kernel function is used to initialize the random states */
-__global__ void initSorted(unsigned int seed) {
 
-  /* we have to initialize the state */
-    // printf("seed %d\n", seed);
-  curandState_t* states = cuConstGraphParams.cudaThreadStates;
-  curand_init(seed, /* the seed can be the same for each core, here we pass the time in from the CPU */
-              blockIdx.x*blockDim.x+threadIdx.x, /* the sequence number should be different for each core (unless you want all
-                             cores to get the same sequence of numbers for some reason - use thread id! */
-              0, /* the offset is how much extra we advance in the sequence for each call, can be 0 */
-              &states[blockIdx.x*blockDim.x+threadIdx.x]);
-  // const double RndProb = curand_uniform(states + blockIdx.x);
-  // printf("RANDOM RANDOM %lf\n", RndProb);
-}
 
 __device__ __inline__ int2
 get_Edge_indices_PKSG(curandState_t* states, uint offX, uint rngX,uint offY, uint rngY, uint u, double A[],double B[],double C[],double D[]) {
@@ -525,11 +514,11 @@ int GraphGen_Cuda::setup(
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
     cudacall(cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH));
-    // if(!compressed){
+    if(!compressed){
     cudacall(cudaMalloc(&cudaDeviceOutput, sizeof(int) * 2 * nEdges));
-    // }else{
+    }else{
     cudacall(cudaMalloc(&cudaDeviceCompressedOutput, sizeof(uint) * nEdges));
-    // }
+    }
     GlobalConstants params;
 
     //Generate Probabilities
@@ -655,8 +644,8 @@ int GraphGen_Cuda::setup(
     params.sorted = sorted;
     cudaMemcpyToSymbol(cuConstGraphParams, &params, sizeof(GlobalConstants));
     /* invoke the GPU to initialize all of the random states */
-    initSorted<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
-    cudaDeviceSynchronize();
+    // initSorted<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
+    // cudaDeviceSynchronize();
 
     for( unsigned int x = 0; x < squares.size(); ++x ){
         std::cout << squares.at(x);
