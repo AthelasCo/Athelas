@@ -7,6 +7,7 @@
 #define NUM_BLOCKS 256
 #define THREADS_PER_BLOCK ((NUM_CUDA_THREADS)*(NUM_CUDA_THREADS))
 #define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
+#define MAX_NUM_EDGES_PER_BLOCK ((NUM_CUDA_THREADS)*20)
 
 struct cudaSquare;
 typedef struct curandStateXORWOW curandState_t;
@@ -18,6 +19,7 @@ private:
     uint* cudaDeviceCompressedOutput;
     cudaSquare* cudaDeviceSquares;
     curandState_t* cudaThreadStates;
+    bool compressed;
 
 public:
     GraphGen_Cuda();
@@ -28,7 +30,8 @@ public:
         const bool allowEdgeToSelf,
         const bool allowDuplicateEdges,
         const bool directedGraph,
-        const bool sorted
+        const bool sorted,
+        const bool compressed
     );
     virtual ~GraphGen_Cuda();
     void generate(const bool directedGraph,

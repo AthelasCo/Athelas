@@ -207,6 +207,93 @@ __global__ void KernelGenerateEdges() {
 
 }
 
+
+__global__ void KernelGenerateEdgesCompressed() {
+    // std::uniform_int_distribution<>& dis, std::mt19937_64& gen,
+    // std::vector<uint>& duplicate_indices
+    //printf("BlockIdx %d ThreadIdx %d\n",blockIdx.x, threadIdx.x);
+    curandState_t* states = cuConstGraphParams.cudaThreadStates;
+    bool directedGraph = cuConstGraphParams.directedGraph;
+    bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
+    bool sorted = cuConstGraphParams.sorted;
+    int blockIndex = blockIdx.x;
+    int offset = blockIndex;
+    int threadIndex = threadIdx.x;
+    if (blockIndex < cuConstGraphParams.nSquares) {
+        cudaSquare squ = (cudaSquare)cuConstGraphParams.cudaSquares[blockIndex];
+        __shared__ uint offX;  
+        __shared__ uint offY;  
+        __shared__ uint rngX;  
+        __shared__ uint rngY;  
+        
+        __shared__ uint nEdgesToGen;
+        if (threadIndex==0)
+        {
+            offX = (uint)squ.X_start;
+            offY = (uint)squ.Y_start;
+            rngX = (uint)squ.X_end-offX;
+            rngY = (uint)squ.Y_end-offY;
+            nEdgesToGen = (uint)squ.nEdgeToGenerate;
+            // printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
+        }   
+        __shared__ double A[MAX_DEPTH];
+        __shared__ double B[MAX_DEPTH];
+        __shared__ double C[MAX_DEPTH];
+        __shared__ double D[MAX_DEPTH];
+        __shared__ uint shared_edges[MAX_NUM_EDGES_PER_BLOCK];
+
+        if (threadIndex==0)
+        {
+            for (int i = 0; i < MAX_DEPTH; ++i)
+            {
+                A[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+                B[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i) + 1]);
+                C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
+                D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
+            }
+            // printf("ENDED probs\n");
+        }
+        __syncthreads();
+
+        auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
+
+
+        unsigned maxIter = updiv(nEdgesToGen, blockDim.x);
+
+        for (unsigned i = 0; i < maxIter; ++i)
+        {
+           int edgeIdx = i * blockDim.x + threadIndex;
+           int2 e;
+           if (edgeIdx < nEdgesToGen )
+           {
+
+               while(true) {
+                   e = get_Edge_indices(states, offX, rngX, offY, rngY, A, B, C, D );
+                   uint h_idx = e.x;
+                   uint v_idx = e.y;
+                   if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) {// Short-circuit if it doesn't pass the test.
+                       printf("EdgeID %d fail1\n", edgeIdx );
+                       continue;
+                   } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+                       printf("EdgeID %d recompute src %d dst %d tl %d tr %d bl %d br %d \n", edgeIdx, h_idx, v_idx, offX, offY, offX+rngX, offY+rngY);
+                       continue;
+                   } else {
+                       break;
+                   }
+               }
+               // printf("Edges Calculated %d \t %d\n", e.x,e.y);
+               shared_edges[edgeIdx] = (e.x-offX)*rngY+(e.y - offY);
+               cuConstGraphParams.cudaDeviceCompressedOutput[( squ.thisEdgeToGenerate + edgeIdx)] = shared_edges[edgeIdx];
+               // cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)+1] = e.y;
+
+           }
+           __syncthreads();
+        }
+        __syncthreads();
+    }
+
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 /* this GPU kernel function is used to initialize the random states */
 __global__ void initSorted(unsigned int seed) {
@@ -405,8 +492,10 @@ int GraphGen_Cuda::setup(
         const bool allowEdgeToSelf,
         const bool allowDuplicateEdges,
         const bool directedGraph,
-        const bool sorted
+        const bool sorted,
+        const bool cudaCompressed
     ){
+    compressed = cudaCompressed;
     int deviceCount = 0;
     std::string name;
     cudaError_t err = cudaGetDeviceCount(&deviceCount);
@@ -507,7 +596,7 @@ int GraphGen_Cuda::setup(
 		
 			int numEdgesAssigned = 0;
 			int edgesPerSquare = srcRect.getnEdges()/NUM_BLOCKS;
-			if (edgesPerSquare<NUM_CUDA_THREADS*20)
+			if (edgesPerSquare< MAX_NUM_EDGES_PER_BLOCK )
 			{
 				continue;
 			}
@@ -578,8 +667,10 @@ void GraphGen_Cuda::generate(const bool directedGraph,
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
     dim3 nBlocks(squares_size,1,1);
     printf("Hello launching kernel of blocks %d %d %d and tpb %d %d %d\n", nBlocks.x, nBlocks.y, nBlocks.z, nThreads.x, nThreads.y, nThreads.z);
+    if (!compressed)
     KernelGenerateEdges<<<nBlocks, nThreads>>>();
-    
+    else
+      KernelGenerateEdgesCompressed<<<nBlocks, nThreads>>>();
 
     cudaDeviceSynchronize();
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
@@ -605,7 +696,10 @@ bool GraphGen_Cuda::destroy(){
 }
 
 void GraphGen_Cuda::getGraph(unsigned* Graph, uint nEdges) {
+  if (uncompressed)
      cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
+  else
      cudaMemcpy(Graph, cudaDeviceCompressedOutput, sizeof(uint)*nEdges, cudaMemcpyDeviceToHost);
 }
+
 

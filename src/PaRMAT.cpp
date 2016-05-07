@@ -67,6 +67,7 @@ int main( int argc, char ** argv ) {
 	bool allowEdgeToSelf = true;
 	bool allowDuplicateEdges = true;
 	bool directedGraph = true;
+	bool compressed = true;
 	uint standardCapacity = 0;
 
 	try{
@@ -97,6 +98,8 @@ int main( int argc, char ** argv ) {
 				allowDuplicateEdges = false;
 			else if( !strcmp(argv[iii], "-undirected"))
 				directedGraph = false;
+			else if( !strcmp(argv[iii], "-uncompressed"))
+				compressed = false;
 		}
 
 		if( nVertices == 0 || nEdges == 0 || nEdges >= nVertices*nVertices )
@@ -116,7 +119,8 @@ int main( int argc, char ** argv ) {
 				"Up to about "<< (RAM_usage*100.0) << " percent of RAM can be used by this program." << "\n" <<
 				"Specified graph may" << (allowEdgeToSelf?" ":" NOT ") << "contain edges that have same source and destination index." << "\n" <<
 				"Specified graph may" << (allowDuplicateEdges?" ":" NOT ") << "contain duplicate edges." << "\n" <<
-				"Specified graph will be " << (directedGraph?"DIRECTED.":"UNDIRECTED.") << "\n";
+				"Specified graph will be " << (directedGraph?"DIRECTED.":"UNDIRECTED.") << "\n"
+				"Specified graph will be " << (compressed?"COMPRESSED.":"UNCOMPRESSED.") << "\n";
 
 		auto totalSystemRAM = static_cast<uint>(getTotalSystemMemory());	// In bytes.
 		auto availableSystemRAM = calculateAvailableRAM( totalSystemRAM, RAM_usage );	// In bytes.
@@ -140,7 +144,7 @@ int main( int argc, char ** argv ) {
 		// Start the work.
 		--nVertices;
         GraphGen_Cuda* athelas = new GraphGen_Cuda();
-		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted);
+		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted, compressed);
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	"No. of Squares Generated: " << squares_size<<std::endl;
         athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
