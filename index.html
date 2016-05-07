@@ -31,9 +31,9 @@
         <h1>
 <a id="a-parallel-random-graph-generation-library" class="anchor" href="#a-parallel-random-graph-generation-library" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>A parallel random graph generation library.</h1>
 
-<pre><code>                                        By
-                        Karandeep Johar &amp; Eshan Verma  
-                  kjohar@andrew.cmu.edu   everma@andrew.cmu.edu
+<pre><code>                              By
+               Karandeep Johar &amp; Eshan Verma  
+         kjohar@andrew.cmu.edu   everma@andrew.cmu.edu
 </code></pre>
 
 <h3>
@@ -73,7 +73,7 @@
 <a id="approach" class="anchor" href="#approach" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>APPROACH</h2>
 
 <p>There are three parts in the approach we adopted:
-(1) A Serial CPU Square Generation
+(1) A Serial CPU Square Generation:
 All three implementations share a serial section in which the input matrix of edges to be generated is divided up in squares according to the probability distributions and these squares get a connection degree associated with them. The division can be seen in the figure.</p>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/SQ.png?raw=true" alt="SQ"></p>
@@ -82,14 +82,14 @@ All three implementations share a serial section in which the input matrix of ed
 
 <p>The next part was implemented differently according to the various optimizations available in the three libraries.</p>
 
-<p>(2.a) PTHREADs based Graph Generation
+<p>(2.a) PTHREADs based Graph Generation:
 We followed a worker-queue based implementation for both scheduling the generation of the graph and writing it to file. The optimization over the baseline was better load balancing by scheduling squares better and determining size of squares better. The latency of writing to files was hidden by following a producer-consumer queue and the master thread handling all writes.</p>
 
-<p>(2.b) openMP Graph Generation
+<p>(2.b) openMP Graph Generation:
 The openMP implementation was over all the squares in the list, and having a lock over over writing to file. The motivation behind this was to avoid having one thread idle during generation and have threads scheduled out while waiting over the lock so that generation time could be reduced.</p>
 
-<p>(2.c) CUDA Graph Generation
-The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph. At the block level we parallelized over all squares and within a block, the parallellization was over all source nodes. The graph was compressed by writing matrix offsets of edges generated to memory. Hence the compression of the graph helped in reducing the memory transfer overhead from the device. At the same time, the cost of expanding the graph is not much in the CPU. The serial algorithm for sorting was optimized to gain block locality and benefit from shared memory accesses as opposed to flushing to global memory. </p>
+<p>(2.c) CUDA Graph Generation:
+The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph. At the block level we parallelized over all squares and within a block, the parallellization was over all source nodes. The graph was compressed by writing matrix offsets of edges generated to memory. Hence the compression of the graph helped in reducing the memory transfer overhead from the device. At the same time, the cost of expanding the graph is not much in the CPU. The serial algorithm for sorting was optimized to gain block locality and benefit from shared memory accesses as opposed to flushing to global memory. Another overhead in CUDA was ensuring the random number generation for which we had to initialize different states for graph depth and thread ID. The CURAND library was used for generating a random number from within the kernel.</p>
 
 <h3>
 <a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESULTS</h3>
@@ -97,12 +97,32 @@ The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph.
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png?raw=true" alt="Bug in code">
 We can see that the original implementation(in red) had a bug and did not actually get the in-degree  curve that we were looking for in a RMAT graph(our implementation in purple). This was an algorithmic change that was needed to ensure correctness as reported by SNAP. The same is ensured across implementations.</p>
 
+<p>NOTE: Aside on Timing information:</p>
+
+<ol>
+<li>OpenMP and PTHREADs have only the graph generation time mentioned with FILE IO being kept separate. We are in the process of optimizing FILE IO for these and the times will be updated over the weekend.</li>
+<li>CUDA runtimes includes time for generation and the data transfer time HtoD. As above FILE IO is in the process of being optimized through parallel stream execution and will be updated over the weekend.</li>
+<li>All profiling done w=using CycleTimer in CPU and NVPROF on GPU. Graph being generated is with 100k vertices and 1 million edges unless stated otherwise.</li>
+</ol>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compare.png?raw=true" alt="WL">
+The workload distribution across probability distribution can be seen above. As mentioned before, the target probability matrix plays a significant role in the distribution of work amongst the squares generated and this is a trend across libraries.</p>
+
+<p>We are not comparing generation speedup w.r.t. the baseline input as there were some logical faults in the graph generation algorithm, however, we can compare our algorithm across the 3 libraries as its uniform and correct. As can be seen PTHREADs is having an advantage over openMP due to the better distribution and no overheads. CUDA, even with the device transfer is performing an order faster than both.</p>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/runtime.png?raw=true" alt="CUDATime">
+The distribution of the Kernel runtime to device transfer times indicates that as the workload becomes more uneven the kernel takes more time to execute, similarly, as the graph becomes bigger, the data times start dominating. The runtimes are linearly increasing as the no. of nodes increase which is also expected as the each kernel instance will execute for longer uniformly
+<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling2.png?raw=true" alt="CUDAScale">
+<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling.png?raw=true" alt="CUDAScale"></p>
+
+<p>Aside on programming complexity:</p>
+
 <h3>
 <a id="resources" class="anchor" href="#resources" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESOURCES</h3>
 
 <ul>
 <li>We will be using the code present here as our starting point:
-<a href="https://github.com/farkhor/PaRMAT">"GitHub - snap-stanford/snap: Stanford Network Analysis ..." 2012. 2 Apr. 2016</a>
+<a href="https://github.com/farkhor/PaRMAT">"GitHub - ParMAT"</a>
 </li>
 <li>The details of which are present in this paper:
 <a href="http://www.cs.ucr.edu/%7Egupta/research/Publications/Comp/wsvr.pdf">Chakrabarti, Deepayan, Yiping Zhan, and Christos Faloutsos. "R-MAT: A Recursive Model for Graph Mining." SDM. Vol. 4. 2004.</a>
@@ -113,11 +133,9 @@ and</li>
 <li><p><a href="http://snap.stanford.edu/class/cs224w-2012/projects/cs224w-035-final.v01.pdf">SNAP: Stanford Network Analysis Project." 2009. 2 Apr. 2016</a></p></li>
 <li><p>Our initial understanding of RMATs was influenced by 
 <a href="http://www.cs.cmu.edu/%7Echristos/PUBLICATIONS/siam04.pdf">Chakrabarti, Deepayan, Yiping Zhan, and Christos Faloutsos. "R-MAT: A Recursive Model for Graph Mining." SDM. Vol. 4. 2004.</a></p></li>
-<li><p>And we will be referencing the following two papers for implementing a parallel Barabasi-Albert method and the Kronecker Graphs:
+<li><p>And we will be referencing the following two papers for implementing a parallel Kronecker Graph:
 -<a href="http://arxiv.org/pdf/1003.3684v1.pdf%20Parallel%20Generation%20of%20Massive%20Scale-Free%20Graphs"> Yoo, Andy, and Keith Henderson. "Parallel generation of massive scale-free graphs." arXiv preprint arXiv:1003.3684 (2010)</a></p></li>
-<li><p><a href="http://karras.rutgers.edu/rg.pdf">Nobari, Sadegh, et al. "Fast random graph generation." Proceedings of the 14th international conference on extending database technology. ACM, 2011</a></p></li>
-<li><p>The CL Algorithm is from this paper:</p></li>
-<li><a href="http://arxiv.org/pdf/1406.1215.pdf">Alam, Maksudul, and Maleq Khan. "Parallel Algorithms for Generating Random Networks with Given Degree Sequences." International Journal of Parallel Programming (2014): 1-19.</a></li>
+<li><a href="http://karras.rutgers.edu/rg.pdf">Nobari, Sadegh, et al. "Fast random graph generation." Proceedings of the 14th international conference on extending database technology. ACM, 2011</a></li>
 </ul>
       </section>
       <footer>
