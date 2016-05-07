@@ -82,11 +82,14 @@ All three implementations share a serial section in which the input matrix of ed
 
 <p>The next part was implemented differently according to the various optimizations available in the three libraries.</p>
 
-<p>(2.a) PTHREADs based Graph Generation</p>
+<p>(2.a) PTHREADs based Graph Generation
+We followed a worker-queue based implementation for both scheduling the generation of the graph and writing it to file. The optimization over the baseline was better load balancing by scheduling squares better and determining size of squares better. The latency of writing to files was hidden by following a producer-consumer queue and the master thread handling all writes.</p>
 
-<p>(2.b) openMP Graph Generation</p>
+<p>(2.b) openMP Graph Generation
+The openMP implementation was over all the squares in the list, and having a lock over over writing to file. The motivation behind this was to avoid having one thread idle during generation and have threads scheduled out while waiting over the lock so that generation time could be reduced.</p>
 
-<p>(2.c) CUDA Graph Generation</p>
+<p>(2.c) CUDA Graph Generation
+The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph. At the block level we parallelized over all squares and within a block, the parallellization was over all source nodes. The graph was compressed by writing matrix offsets of edges generated to memory. Hence the compression of the graph helped in reducing the memory transfer overhead from the device. At the same time, the cost of expanding the graph is not much in the CPU. The serial algorithm for sorting was optimized to gain block locality and benefit from shared memory accesses as opposed to flushing to global memory. </p>
 
 <h3>
 <a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESULTS</h3>
