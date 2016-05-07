@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <vector>
-
+#include <cub/cub.cuh>
 #include <iostream>
 #include <cstring>
 #include <fstream>
@@ -44,6 +44,7 @@ struct GlobalConstants {
     uint cudaDeviceNumEdges, cudaDeviceNumVertices;
     double* cudaDeviceProbs;
     int* cudaDeviceOutput;
+    uint* cudaDeviceCompressedOutput;
     cudaSquare* cudaSquares;
     curandState_t* cudaThreadStates;
     int nSquares;
@@ -347,6 +348,7 @@ __global__ void KernelGenerateEdgesPSKG() {
                 __syncthreads();
                 //BUG: Manual sum of out degrees overflows net edges to generate
                 //BUG: Prefix sum not working
+                printf("OUTDEGREE %d\n", X);
                 // printf("Found out degree %d for net out degree %d for nElements %d\n", X, shared_output[max(minN-1,0)], minN); 
                 uint edgeIdx;
                 for( edgeIdx = 0; edgeIdx < X ; ) {
@@ -359,7 +361,8 @@ __global__ void KernelGenerateEdgesPSKG() {
                         printf("Err\n"); break;//continue;
                     //BUG: Code Hangs if below two lines included
                     } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
-                       printf("Err2\n"); break;//continue;
+                       printf("Err2\n"); //break;
+                       continue;
                     } else {
                     ++edgeIdx;
                     //Write to file
@@ -380,6 +383,7 @@ GraphGen_Cuda::GraphGen_Cuda() {
     cudaDeviceProbs = NULL;
     cudaDeviceOutput = NULL;
     cudaDeviceSquares = NULL;
+    cudaDeviceCompressedOutput = NULL;
 }
 
 
@@ -389,6 +393,7 @@ GraphGen_Cuda::~GraphGen_Cuda() {
         cudaFree(cudaDeviceOutput);
         cudaFree(cudaDeviceSquares);
         cudaFree(cudaThreadStates);
+        cudaFree(cudaDeviceCompressedOutput);
    }
 }
 
@@ -430,6 +435,7 @@ int GraphGen_Cuda::setup(
     cudacall(cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH));
 
     cudacall(cudaMalloc(&cudaDeviceOutput, sizeof(int) * 2 * nEdges));
+    cudacall(cudaMalloc(&cudaDeviceCompressedOutput, sizeof(uint) * nEdges));
 
     GlobalConstants params;
 
@@ -452,6 +458,7 @@ int GraphGen_Cuda::setup(
     params.cudaDeviceNumEdges = nEdges ;
     params.cudaDeviceNumVertices = nVertices;
     params.cudaDeviceOutput = cudaDeviceOutput;
+    params.cudaDeviceCompressedOutput = cudaDeviceCompressedOutput;
     cudaMemcpy(cudaDeviceProbs, probs, sizeof(double) * 4 * MAX_DEPTH, cudaMemcpyHostToDevice);
     params.cudaDeviceProbs = cudaDeviceProbs;
 
@@ -500,7 +507,7 @@ int GraphGen_Cuda::setup(
 		
 			int numEdgesAssigned = 0;
 			int edgesPerSquare = srcRect.getnEdges()/NUM_BLOCKS;
-			if (edgesPerSquare<20000)
+			if (edgesPerSquare<NUM_CUDA_THREADS*20)
 			{
 				continue;
 			}
@@ -571,11 +578,8 @@ void GraphGen_Cuda::generate(const bool directedGraph,
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
     dim3 nBlocks(squares_size,1,1);
     printf("Hello launching kernel of blocks %d %d %d and tpb %d %d %d\n", nBlocks.x, nBlocks.y, nBlocks.z, nThreads.x, nThreads.y, nThreads.z);
-    if (!sorted){
     KernelGenerateEdges<<<nBlocks, nThreads>>>();
-    }else{
-       KernelGenerateEdgesPSKG<<<nBlocks, nThreads>>>(); 
-    }
+    
 
     cudaDeviceSynchronize();
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError());
@@ -596,10 +600,12 @@ bool GraphGen_Cuda::destroy(){
     //cudaFree(states);
     cudaFree(cudaDeviceProbs);
     cudaFree(cudaDeviceOutput);
+    cudaFree(cudaDeviceCompressedOutput);
     return true;
 }
 
 void GraphGen_Cuda::getGraph(unsigned* Graph, uint nEdges) {
      cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
+     cudaMemcpy(Graph, cudaDeviceCompressedOutput, sizeof(uint)*nEdges, cudaMemcpyDeviceToHost);
 }
 

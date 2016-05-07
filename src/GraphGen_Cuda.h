@@ -15,6 +15,7 @@ class GraphGen_Cuda {
 private:
     double* cudaDeviceProbs;
     int* cudaDeviceOutput;
+    uint* cudaDeviceCompressedOutput;
     cudaSquare* cudaDeviceSquares;
     curandState_t* cudaThreadStates;
 

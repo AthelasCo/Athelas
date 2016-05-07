@@ -45,4 +45,4 @@ src/%.o: ../src/%.cpp
 
 
 src/%.o: ../src/%.cu
-	$(NVCC) $< $(NVCCFLAGS) -c -std=c++11 -o $@
+	$(NVCC) $< $(NVCCFLAGS) -c -I ../src/cub-1.5.2/ -std=c++11 -o $@
