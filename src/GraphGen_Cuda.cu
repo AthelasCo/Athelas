@@ -471,6 +471,7 @@ GraphGen_Cuda::GraphGen_Cuda() {
     cudaDeviceOutput = NULL;
     cudaDeviceSquares = NULL;
     cudaDeviceCompressedOutput = NULL;
+    allSquares = NULL;
 }
 
 
@@ -616,7 +617,8 @@ int GraphGen_Cuda::setup(
 	std::sort(squares.begin(), squares.end(),std::greater<Square>());
 
     //uint* allSquares = (uint*) malloc(sizeof(uint)* 6 * squares.size());
-    cudaSquare* allSquares = (cudaSquare*) malloc(sizeof(cudaSquare) * squares.size());
+    allSquares = (cudaSquare*) malloc(sizeof(cudaSquare) * squares.size());
+    nSquares = squares.size();
     printf("Generated Squres\n");
 
     uint tEdges = 0;
@@ -657,7 +659,7 @@ int GraphGen_Cuda::setup(
         std::cout << squares.at(x);
     }
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError()) << "\n";
-    free(allSquares);
+    //free(allSquares);
     return squares.size();
 }
 
@@ -696,7 +698,7 @@ bool GraphGen_Cuda::destroy(){
 }
 
 void GraphGen_Cuda::getGraph(unsigned* Graph, uint nEdges) {
-  if (uncompressed)
+  if (!compressed)
      cudaMemcpy(Graph, cudaDeviceOutput, sizeof(int)*2*nEdges, cudaMemcpyDeviceToHost);
   else
      cudaMemcpy(Graph, cudaDeviceCompressedOutput, sizeof(uint)*nEdges, cudaMemcpyDeviceToHost);

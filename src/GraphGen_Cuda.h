@@ -20,6 +20,8 @@ private:
     cudaSquare* cudaDeviceSquares;
     curandState_t* cudaThreadStates;
     bool compressed;
+    cudaSquare* allSquares;
+    uint nSquares;
 
 public:
     GraphGen_Cuda();
