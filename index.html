@@ -120,7 +120,9 @@ The distribution of the Kernel runtime to device transfer times indicates that a
 <a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h4>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress.png?raw=true" alt="CUDACompress">
-The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 3x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU.</p>
+The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 3x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU. The basic representation is by storing an edge tuple as a single number instead of a tuple. Within a square each edge can be represented as an offset form the origin, the details of this representation are listed in the Algorithm description below.
+<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/Algo.png?raw=true" alt="CUDACompress">
+This also allows for easy reconstruction, as the math pre edge is independent and simple. Thus instead of storing an edge as a tuple, we are storing it as a single integer.</p>
 
 <p>Aside on programming complexity:</p>
 
