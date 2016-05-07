@@ -242,7 +242,7 @@ __global__ void KernelGenerateEdgesCompressed() {
         __shared__ double B[MAX_DEPTH];
         __shared__ double C[MAX_DEPTH];
         __shared__ double D[MAX_DEPTH];
-        __shared__ uint shared_edges[MAX_NUM_EDGES_PER_BLOCK];
+        // __shared__ uint shared_edges[MAX_NUM_EDGES_PER_BLOCK];
 
         if (threadIndex==0)
         {
@@ -284,8 +284,8 @@ __global__ void KernelGenerateEdgesCompressed() {
                    }
                }
                // printf("Edges Calculated %d \t %d %u Square %d %d \n", e.x,e.y, (e.x-offX)*rngY+(e.y - offY), blockIndex, offset);
-               shared_edges[edgeIdx] = (e.x-offX)*rngY+(e.y - offY);
-               cuConstGraphParams.cudaDeviceCompressedOutput[( offset + edgeIdx)] = shared_edges[edgeIdx];
+               // shared_edges[edgeIdx] = (e.x-offX)*rngY+(e.y - offY);
+               cuConstGraphParams.cudaDeviceCompressedOutput[( squ.thisEdgeToGenerate + edgeIdx)] = (e.x-offX)*rngY+(e.y - offY);
                // cuConstGraphParams.cudaDeviceOutput[2*( squ.thisEdgeToGenerate + edgeIdx)+1] = e.y;
 
            }
@@ -525,11 +525,11 @@ int GraphGen_Cuda::setup(
     // See the CUDA Programmer's Guide for descriptions of
     // cudaMalloc and cudaMemcpy
     cudacall(cudaMalloc(&cudaDeviceProbs, sizeof(double) * 4 * MAX_DEPTH));
-    if(!compressed){
+    // if(!compressed){
     cudacall(cudaMalloc(&cudaDeviceOutput, sizeof(int) * 2 * nEdges));
-    }else{
+    // }else{
     cudacall(cudaMalloc(&cudaDeviceCompressedOutput, sizeof(uint) * nEdges));
-    }
+    // }
     GlobalConstants params;
 
     //Generate Probabilities
