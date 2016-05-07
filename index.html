@@ -117,6 +117,23 @@ The distribution of the Kernel runtime to device transfer times indicates that a
 
 <p>Aside on programming complexity:</p>
 
+<ol>
+<li><p>Start-to-Basic Implementation
+OpenMP was the easiest to parallelize a given serial implementation, with PTHREADs involving some restructuring to enable threading and queueing. CUDA was complex to get going due to kernel design overheads, figuring the data transfer and parameter(s) access across devices, as well as random number generation on the GPU.</p></li>
+<li><p>Optimization Freedom
+Due to its nature, openMP provided the least options to explore and least flexibility in terms of implementation. CUDA on the other hand is something we are still optimizing over. The chance to exploit block level locality presents many diverse implementation strategies and options.</p></li>
+</ol>
+
+<h3>
+<a id="future-work" class="anchor" href="#future-work" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>FUTURE WORK</h3>
+
+<p>We want to explore latency hiding in all three for faster FILE IO. The use of compression was already implemented in CUDA and needs to be done in the other two. CUDA also has parallel stream execution by which we can transfer chunks of memory the moment a kernel gets over. We will try to finish the experiments by 5/9.</p>
+
+<h3>
+<a id="tldr" class="anchor" href="#tldr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Tl;Dr</h3>
+
+<p>We implemented a Parallel Graph Generation Library which enables a user to generate massive random graphs using the platform of choice. The implementation across libraries was to best understand the complexity as well as optimization capabilities of each and not just to present as an option to the end user. The library scales across graph sizes and is easy and intuitive to setup and use.</p>
+
 <h3>
 <a id="resources" class="anchor" href="#resources" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESOURCES</h3>
 
@@ -137,6 +154,11 @@ and</li>
 -<a href="http://arxiv.org/pdf/1003.3684v1.pdf%20Parallel%20Generation%20of%20Massive%20Scale-Free%20Graphs"> Yoo, Andy, and Keith Henderson. "Parallel generation of massive scale-free graphs." arXiv preprint arXiv:1003.3684 (2010)</a></p></li>
 <li><a href="http://karras.rutgers.edu/rg.pdf">Nobari, Sadegh, et al. "Fast random graph generation." Proceedings of the 14th international conference on extending database technology. ACM, 2011</a></li>
 </ul>
+
+<h3>
+<a id="work-division" class="anchor" href="#work-division" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Work Division</h3>
+
+<p>Equal work was performed by both project members.</p>
       </section>
       <footer>
         <p>This project is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a></p>
