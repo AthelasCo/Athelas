@@ -78,6 +78,8 @@ All three implementations share a serial section in which the input matrix of ed
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/SQ.png?raw=true" alt="SQ"></p>
 
+<p><em>Square Generation across which parallelism is maintained</em></p>
+
 <p>NOTE: In our analysis, we have excluded timing of this section as a fixed overhead.</p>
 
 <p>The next part was implemented differently according to the various optimizations available in the three libraries.</p>
@@ -94,8 +96,11 @@ The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph.
 <h3>
 <a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESULTS</h3>
 
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png?raw=true" alt="Bug in code">
-We can see that the original implementation(in red) had a bug and did not actually get the in-degree  curve that we were looking for in a RMAT graph(our implementation in purple). This was an algorithmic change that was needed to ensure correctness as reported by SNAP. The same is ensured across implementations.</p>
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png?raw=true" alt="Bug in code"></p>
+
+<p><em>Error correction in original code</em></p>
+
+<p>We can see that the original implementation(in red) had a bug and did not actually get the in-degree  curve that we were looking for in a RMAT graph(our implementation in purple). This was an algorithmic change that was needed to ensure correctness as reported by SNAP. The same is ensured across implementations.</p>
 
 <p>NOTE: Aside on Timing information:</p>
 
@@ -106,23 +111,40 @@ We can see that the original implementation(in red) had a bug and did not actual
 <li>The comparisons are pre-compression. Comparison data is presented for CUDA in the last section.</li>
 </ol>
 
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compare.png?raw=true" alt="WL">
-The workload distribution across probability distribution can be seen above. As mentioned before, the target probability matrix plays a significant role in the distribution of work amongst the squares generated and this is a trend across libraries.</p>
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/threadScaling.png?raw=true" alt="TS"></p>
+
+<p><em>Scaling of code across nCores of CPU</em></p>
+
+<p>Our implementation scales across cores and plateaus after a point as the inherent parallelism breaks down.</p>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compare.png?raw=true" alt="WL"></p>
+
+<p><em>Workload Distribution of implementation across probabilities</em></p>
+
+<p>The workload distribution across probability distribution can be seen above. As mentioned before, the target probability matrix plays a significant role in the distribution of work amongst the squares generated and this is a trend across libraries.</p>
 
 <p>We are not comparing generation speedup w.r.t. the baseline input as there were some logical faults in the graph generation algorithm, however, we can compare our algorithm across the 3 libraries as its uniform and correct. As can be seen PTHREADs is having an advantage over openMP due to the better distribution and no overheads. CUDA, even with the device transfer is performing an order faster than both.</p>
 
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/runtime.png?raw=true" alt="CUDATime">
-The distribution of the Kernel runtime to device transfer times indicates that as the workload becomes more uneven the kernel takes more time to execute, similarly, as the graph becomes bigger, the data times start dominating. The runtimes are linearly increasing as the no. of nodes increase which is also expected as the each kernel instance will execute for longer uniformly
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/runtime.png?raw=true" alt="CUDATime"></p>
+
+<p><em>CUDA runtimes on different probability distribution</em></p>
+
+<p>The distribution of the Kernel runtime to device transfer times indicates that as the workload becomes more uneven the kernel takes more time to execute, similarly, as the graph becomes bigger, the data times start dominating. The runtimes are linearly increasing as the no. of nodes increase which is also expected as the each kernel instance will execute for longer uniformly
 <img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling2.png?raw=true" alt="CUDAScale">
 <img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling.png?raw=true" alt="CUDAScale"></p>
+
+<p><em>CUDA Kernel Vs. Data Transfer Timings across Graph Sizes</em></p>
 
 <h4>
 <a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h4>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress.png?raw=true" alt="CUDACompress">
 The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 3x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU. The basic representation is by storing an edge tuple as a single number instead of a tuple. Within a square each edge can be represented as an offset form the origin, the details of this representation are listed in the Algorithm description below.
-<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/Algo.png?raw=true" alt="CUDACompress">
-This also allows for easy reconstruction, as the math pre edge is independent and simple. Thus instead of storing an edge as a tuple, we are storing it as a single integer.</p>
+<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/Algo.png?raw=true" alt="CUDACompress"></p>
+
+<p><em>Algorithm for Compression</em></p>
+
+<p>This also allows for easy reconstruction, as the math pre edge is independent and simple. Thus instead of storing an edge as a tuple, we are storing it as a single integer.</p>
 
 <p>Aside on programming complexity:</p>
 
