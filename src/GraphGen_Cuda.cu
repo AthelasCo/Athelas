@@ -22,6 +22,8 @@
 #include "utils.hpp"
 #include "exclusiveScan.cu_inl"
 
+unsigned NUM_BLOCKS=128;
+unsigned NUM_CUDA_THREADS=128;
 #define cudacall(call) \
 { \
     cudaError_t err = (call);                                                                                               \
@@ -341,119 +343,119 @@ get_Edge_indices_PKSG(curandState_t* states, uint offX, uint rngX,uint offY, uin
     return e;
 }
 
-__global__ void KernelGenerateEdgesPSKG() {
-    curandState_t* states = cuConstGraphParams.cudaThreadStates;
-    bool directedGraph = cuConstGraphParams.directedGraph;
-    bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
-    bool sorted = cuConstGraphParams.sorted;
-    int blockIndex = blockIdx.x;
-    int threadIndex = threadIdx.x;
-    if (blockIndex < cuConstGraphParams.nSquares) {
-        cudaSquare squ = (cudaSquare)cuConstGraphParams.cudaSquares[blockIndex];
-        __shared__ uint offX;  
-        __shared__ uint offY;  
-        __shared__ uint rngX;  
-        __shared__ uint rngY;  
+// __global__ void KernelGenerateEdgesPSKG() {
+//     curandState_t* states = cuConstGraphParams.cudaThreadStates;
+//     bool directedGraph = cuConstGraphParams.directedGraph;
+//     bool allowEdgeToSelf = cuConstGraphParams.allowEdgeToSelf;
+//     bool sorted = cuConstGraphParams.sorted;
+//     int blockIndex = blockIdx.x;
+//     int threadIndex = threadIdx.x;
+//     if (blockIndex < cuConstGraphParams.nSquares) {
+//         cudaSquare squ = (cudaSquare)cuConstGraphParams.cudaSquares[blockIndex];
+//         __shared__ uint offX;  
+//         __shared__ uint offY;  
+//         __shared__ uint rngX;  
+//         __shared__ uint rngY;  
         
-        __shared__ uint nEdgesToGen;
-        if (threadIndex==0)
-        {
-            offX = (uint)squ.X_start;
-            offY = (uint)squ.Y_start;
-            rngX = (uint)squ.X_end-offX;
-            rngY = (uint)squ.Y_end-offY;
-            nEdgesToGen = (uint)squ.nEdgeToGenerate;
-            printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
-        }
-        __shared__ double A[MAX_DEPTH];
-        __shared__ double B[MAX_DEPTH];
-        __shared__ double C[MAX_DEPTH];
-        __shared__ double D[MAX_DEPTH];
+//         __shared__ uint nEdgesToGen;
+//         if (threadIndex==0)
+//         {
+//             offX = (uint)squ.X_start;
+//             offY = (uint)squ.Y_start;
+//             rngX = (uint)squ.X_end-offX;
+//             rngY = (uint)squ.Y_end-offY;
+//             nEdgesToGen = (uint)squ.nEdgeToGenerate;
+//             printf("Found Square x: [%u,%u] y: [%u, %u] %u\n", offX,  offX+rngX,offY,offY+rngY, nEdgesToGen);
+//         }
+//         __shared__ double A[MAX_DEPTH];
+//         __shared__ double B[MAX_DEPTH];
+//         __shared__ double C[MAX_DEPTH];
+//         __shared__ double D[MAX_DEPTH];
 
-        if (threadIndex==0)
-        {
-            for (int i = 0; i < MAX_DEPTH; ++i)
-            {
-                A[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
-                B[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i) + 1]);
-                C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
-                D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
-            }
-        }
-        __syncthreads();
-        int minN = min(NUM_CUDA_THREADS, (int)rngX);
-        __shared__ uint shared_no_of_outdegs[NUM_CUDA_THREADS];
-        __shared__ uint shared_output[NUM_CUDA_THREADS];
-        volatile __shared__ uint shared_scratch[2 * NUM_CUDA_THREADS];
+//         if (threadIndex==0)
+//         {
+//             for (int i = 0; i < MAX_DEPTH; ++i)
+//             {
+//                 A[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)]);
+//                 B[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i) + 1]);
+//                 C[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 2]);
+//                 D[i] = (double)(cuConstGraphParams.cudaDeviceProbs[4 * (i)+ 3]);
+//             }
+//         }
+//         __syncthreads();
+//         int minN = min(NUM_CUDA_THREADS, (int)rngX);
+//         __shared__ uint shared_no_of_outdegs[NUM_CUDA_THREADS];
+//         __shared__ uint shared_output[NUM_CUDA_THREADS];
+//         volatile __shared__ uint shared_scratch[2 * NUM_CUDA_THREADS];
 
-        auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
+//         auto applyCondition = directedGraph || ( offX < offY); // true: if the graph is directed or in case it is undirected, the square belongs to the lower triangle of adjacency matrix. false: the diagonal passes the rectangle and the graph is undirected.
 
 
-        unsigned maxIter = updiv(rngX, blockDim.x); //Divide all sources amongst NUM_CUDA_THREADS
-        int N = 2;
+//         unsigned maxIter = updiv(rngX, blockDim.x); //Divide all sources amongst NUM_CUDA_THREADS
+//         int N = 2;
 
-        for (unsigned i = 0; i < maxIter; ++i)
-        {
-            // shared_output[threadIdx.x] = 0;
-            // shared_no_of_outdegs[threadIdx.x]= 0;
-            int srcIdx = i * blockDim.x + threadIndex+offX;//Interleave sources
-            if (srcIdx < rngX+offX )
-            {
-                double p=nEdgesToGen;
-                uint z = srcIdx;
-                int j=0;
-                uint localrngX = rngX;
-                while(localrngX>0) {
-                    uint l = z%N;
-                    double Ul = A[j]+B[j];
-                    if (l==1)
-                    {
-                      Ul = 1-(A[j]+B[j]);
-                    }
-                    p= p * Ul;
-                    z = z/N;
-                    localrngX/=2;
-                    j++;
-                }
-                double ep =p;
-                curandState_t localState = states[threadIndex];
-                unsigned int X = curand_poisson(&localState, ep);
-                shared_no_of_outdegs[threadIndex] = X;
-                //Perform prefix_sum
-                __syncthreads();
-                sharedMemExclusiveScan(threadIndex, shared_no_of_outdegs, shared_output,
-                              shared_scratch, minN);
-                __syncthreads();
-                //BUG: Manual sum of out degrees overflows net edges to generate
-                //BUG: Prefix sum not working
-                printf("OUTDEGREE %d\n", X);
-                // printf("Found out degree %d for net out degree %d for nElements %d\n", X, shared_output[max(minN-1,0)], minN); 
-                uint edgeIdx;
-                for( edgeIdx = 0; edgeIdx < X ; ) {
-                    int2 e;
-                    e = get_Edge_indices_PKSG(states, offX, rngX, offY, rngY, srcIdx, A, B, C, D);
-                    uint h_idx = e.x;
-                    uint v_idx = e.y;
-                    printf(" %u Edges Calculated %d \t %d Found Square x: [%u,%u] y: [%u, %u] \n",srcIdx,  e.x,e.y, offX,  offX+rngX,offY,offY+rngY);
-                    if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) {// Short-circuit if it doesn't pass the test.
-                        printf("Err\n"); break;//continue;
-                    //BUG: Code Hangs if below two lines included
-                    } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
-                       printf("Err2\n"); //break;
-                       continue;
-                    } else {
-                    ++edgeIdx;
-                    //Write to file
-                    }
-                }
-                printf("Generated %d edges in thread %d in block %d\n", edgeIdx, threadIndex, blockIdx.x );
-             }
-            __syncthreads();
-        }
-        __syncthreads();
-    }
+//         for (unsigned i = 0; i < maxIter; ++i)
+//         {
+//             // shared_output[threadIdx.x] = 0;
+//             // shared_no_of_outdegs[threadIdx.x]= 0;
+//             int srcIdx = i * blockDim.x + threadIndex+offX;//Interleave sources
+//             if (srcIdx < rngX+offX )
+//             {
+//                 double p=nEdgesToGen;
+//                 uint z = srcIdx;
+//                 int j=0;
+//                 uint localrngX = rngX;
+//                 while(localrngX>0) {
+//                     uint l = z%N;
+//                     double Ul = A[j]+B[j];
+//                     if (l==1)
+//                     {
+//                       Ul = 1-(A[j]+B[j]);
+//                     }
+//                     p= p * Ul;
+//                     z = z/N;
+//                     localrngX/=2;
+//                     j++;
+//                 }
+//                 double ep =p;
+//                 curandState_t localState = states[threadIndex];
+//                 unsigned int X = curand_poisson(&localState, ep);
+//                 shared_no_of_outdegs[threadIndex] = X;
+//                 //Perform prefix_sum
+//                 __syncthreads();
+//                 sharedMemExclusiveScan(threadIndex, shared_no_of_outdegs, shared_output,
+//                               shared_scratch, minN);
+//                 __syncthreads();
+//                 //BUG: Manual sum of out degrees overflows net edges to generate
+//                 //BUG: Prefix sum not working
+//                 printf("OUTDEGREE %d\n", X);
+//                 // printf("Found out degree %d for net out degree %d for nElements %d\n", X, shared_output[max(minN-1,0)], minN); 
+//                 uint edgeIdx;
+//                 for( edgeIdx = 0; edgeIdx < X ; ) {
+//                     int2 e;
+//                     e = get_Edge_indices_PKSG(states, offX, rngX, offY, rngY, srcIdx, A, B, C, D);
+//                     uint h_idx = e.x;
+//                     uint v_idx = e.y;
+//                     printf(" %u Edges Calculated %d \t %d Found Square x: [%u,%u] y: [%u, %u] \n",srcIdx,  e.x,e.y, offX,  offX+rngX,offY,offY+rngY);
+//                     if( (!applyCondition && h_idx > v_idx) || (!allowEdgeToSelf && h_idx == v_idx ) ) {// Short-circuit if it doesn't pass the test.
+//                         printf("Err\n"); break;//continue;
+//                     //BUG: Code Hangs if below two lines included
+//                     } else if (h_idx< offX || h_idx>= offX+rngX || v_idx < offY || v_idx >= offY+rngY ){
+//                        printf("Err2\n"); //break;
+//                        continue;
+//                     } else {
+//                     ++edgeIdx;
+//                     //Write to file
+//                     }
+//                 }
+//                 printf("Generated %d edges in thread %d in block %d\n", edgeIdx, threadIndex, blockIdx.x );
+//              }
+//             __syncthreads();
+//         }
+//         __syncthreads();
+//     }
 
-}
+// }
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
@@ -485,8 +487,12 @@ int GraphGen_Cuda::setup(
         const bool allowDuplicateEdges,
         const bool directedGraph,
         const bool sorted,
-        const bool cudaCompressed
+        const bool cudaCompressed, 
+        const unsigned num_blocks,
+        const unsigned num_cuda_threads
     ){
+    NUM_BLOCKS = num_blocks;
+    NUM_CUDA_THREADS = num_cuda_threads;
     compressed = cudaCompressed;
     int deviceCount = 0;
     std::string name;
@@ -609,6 +615,22 @@ int GraphGen_Cuda::setup(
 
 	
 	// }
+  // bool foundSquareToShatter=true;
+  // while(  foundSquareToShatter) {
+  //   // Shattering the biggest rectangle.
+  //   foundSquareToShatter = false;
+  //   for( unsigned int x = 0; x < squares.size(); ++x )
+  //   {
+  //         Square sq = squares.at(x);
+  //          if ((sq.get_X_end()-sq.get_X_start()) > 2^16 || (sq.get_Y_end()-sq.get_Y_start()) > 2^16)
+  //          {
+  //           ShatterSquare(squares, RMAT_a, RMAT_b, RMAT_c, x, directedGraph);
+  //           foundSquareToShatter = true;
+  //           break;
+  //          }
+  //   } 
+  // }
+
 	std::sort(squares.begin(), squares.end(),std::greater<Square>());
 
     //uint* allSquares = (uint*) malloc(sizeof(uint)* 6 * squares.size());
@@ -650,9 +672,12 @@ int GraphGen_Cuda::setup(
     // initSorted<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
     // cudaDeviceSynchronize();
 
-    // for( unsigned int x = 0; x < squares.size(); ++x ){
-    //     std::cout << squares.at(x);
-    // }
+    for( unsigned int x = 0; x < squares.size(); ++x ){
+        if ((squares.at(x).get_X_end()-squares.at(x).get_X_start()) > 2^16 || (squares.at(x).get_Y_end()-squares.at(x).get_Y_start()) > 2^16)
+        {
+          std::cout << squares.at(x);
+        }
+    }
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError()) << "\n";
     //free(allSquares);
     return squares.size();

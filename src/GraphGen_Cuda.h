@@ -3,11 +3,10 @@
 #include <fstream>
 
 #define MAX_DEPTH 128
-#define NUM_CUDA_THREADS 256
-#define NUM_BLOCKS 1024
-#define THREADS_PER_BLOCK ((NUM_CUDA_THREADS)*(NUM_CUDA_THREADS))
+// #define NUM_CUDA_THREADS 256
+// #define NUM_BLOCKS 1024
+#define THREADS_PER_BLOCK ((256)*(256))
 #define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
-#define MAX_NUM_EDGES_PER_BLOCK ((1024)*20)
 
 struct cudaSquare;
 typedef struct curandStateXORWOW curandState_t;
@@ -33,7 +32,9 @@ public:
         const bool allowDuplicateEdges,
         const bool directedGraph,
         const bool sorted,
-        const bool compressed
+        const bool compressed,
+        const uint num_blocks,
+        const uint num_cuda_threads
     );
     virtual ~GraphGen_Cuda();
     void generate(const bool directedGraph,

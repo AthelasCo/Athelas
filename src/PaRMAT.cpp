@@ -59,7 +59,7 @@ int main( int argc, char ** argv ) {
 
 
 	std::ofstream outf;
-	uint nEdges = 0, nVertices = 0;
+	unsigned long long nEdges = 0, nVertices = 0;
 	double a = 0.45, b = 0.22, c = 0.22;
 	unsigned int nCPUWorkerThreads = 0;
 	bool sorted = false;
@@ -70,6 +70,8 @@ int main( int argc, char ** argv ) {
 	bool compressed = true;
 	bool fileprint = false;
 	uint standardCapacity = 0;
+	uint num_blocks = 128;
+	uint num_cuda_threads = 128;
 
 	try{
 
@@ -103,6 +105,10 @@ int main( int argc, char ** argv ) {
 				compressed = false;
 			else if( !strcmp(argv[iii], "-fileprint"))
 				fileprint = true;
+			else if( !strcmp(argv[iii], "-num_blocks"))
+				num_blocks = std::stoul( std::string(argv[iii]) );
+			else if( !strcmp(argv[iii], "-fileprint"))
+				num_cuda_threads = std::stoul( std::string(argv[iii]) );
 		}
 
 		if( nVertices == 0 || nEdges == 0 || nEdges/nVertices/nVertices >= 1 )
@@ -127,7 +133,7 @@ int main( int argc, char ** argv ) {
 
 		auto totalSystemRAM = static_cast<uint>(getTotalSystemMemory());	// In bytes.
 		auto availableSystemRAM = calculateAvailableRAM( totalSystemRAM, RAM_usage );	// In bytes.
-
+		std::cout<< "system RAM is :" <<availableSystemRAM <<"\n";
 		standardCapacity = availableSystemRAM / (2*nCPUWorkerThreads*sizeof(Edge)); // 2 can count for vector's effect.
 		std::cout << "Each thread capacity is " << standardCapacity << " edges." << "\n";
 
@@ -147,7 +153,7 @@ int main( int argc, char ** argv ) {
 		// Start the work.
 		--nVertices;
         GraphGen_Cuda* athelas = new GraphGen_Cuda();
-		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted, compressed);
+		int squares_size = athelas->setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted, compressed, num_blocks, num_cuda_threads);
 		        	// setup(nEdges, nVertices, a, b, c, standardCapacity, allowEdgeToSelf, allowDuplicateEdges, directedGraph, sorted)
 		std::cout<<	"No. of Squares Generated: " << squares_size<<std::endl;
         athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
