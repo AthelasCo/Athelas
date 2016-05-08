@@ -7,7 +7,7 @@
 #define NUM_BLOCKS 1024
 #define THREADS_PER_BLOCK ((NUM_CUDA_THREADS)*(NUM_CUDA_THREADS))
 #define SCAN_BLOCK_DIM (THREADS_PER_BLOCK)
-#define MAX_NUM_EDGES_PER_BLOCK ((NUM_CUDA_THREADS)*20)
+#define MAX_NUM_EDGES_PER_BLOCK ((1024)*20)
 
 struct cudaSquare;
 typedef struct curandStateXORWOW curandState_t;

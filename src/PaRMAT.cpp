@@ -68,6 +68,7 @@ int main( int argc, char ** argv ) {
 	bool allowDuplicateEdges = true;
 	bool directedGraph = true;
 	bool compressed = true;
+	bool fileprint = false;
 	uint standardCapacity = 0;
 
 	try{
@@ -100,9 +101,11 @@ int main( int argc, char ** argv ) {
 				directedGraph = false;
 			else if( !strcmp(argv[iii], "-uncompressed"))
 				compressed = false;
+			else if( !strcmp(argv[iii], "-fileprint"))
+				fileprint = true;
 		}
 
-		if( nVertices == 0 || nEdges == 0 || nEdges >= nVertices*nVertices )
+		if( nVertices == 0 || nEdges == 0 || nEdges/nVertices/nVertices >= 1 )
 			throw std::runtime_error( "Number of edges or number of vertices are not specified (correctly)." );
 
 		if( !outf.is_open() )
@@ -149,13 +152,22 @@ int main( int argc, char ** argv ) {
 		std::cout<<	"No. of Squares Generated: " << squares_size<<std::endl;
         athelas->generate(directedGraph, allowDuplicateEdges, sorted, squares_size);
         std::cout << "Allocating memory for graph\n";
-        uint* Graph = (uint*) malloc(sizeof(int) * 2 * nEdges);
+        uint* Graph;
+        if (compressed){
+        	Graph = (uint*) malloc(sizeof(int) * nEdges);
+        }
+        else{
+        	 Graph = (uint*) malloc(sizeof(int) * 2 * nEdges);
+    	}
         std::cout << "Getting the Graph\n";
         double startTime = CycleTimer::currentSeconds();
         athelas->getGraph(Graph, nEdges);
         double endTime = CycleTimer::currentSeconds();
         printf("Time to fetch graph %.4f\n", endTime-startTime);
-        std::cout << "Printed lines " << athelas->printGraph(Graph, nEdges, outf) << "\n";
+        if (fileprint)
+        {
+        	std::cout << "Printed lines " << athelas->printGraph(Graph, nEdges, outf) << "\n";
+        }
         double endTime2 = CycleTimer::currentSeconds();
         printf("Time to write graph %.4f\n", endTime2-endTime);
         free(Graph);

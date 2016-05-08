@@ -495,7 +495,7 @@ int GraphGen_Cuda::setup(
     printf("---------------------------------------------------------\n");
     printf("Initializing CUDA for CudaRenderer\n");
     printf("Found %d CUDA devices\n", deviceCount);
-
+     uint gpuCapacity;
     for (int i=0; i<deviceCount; i++) {
         cudaDeviceProp deviceProps;
         cudaGetDeviceProperties(&deviceProps, i);
@@ -505,6 +505,9 @@ int GraphGen_Cuda::setup(
         printf("   SMs:        %d\n", deviceProps.multiProcessorCount);
         printf("   Global mem: %.0f MB\n", static_cast<float>(deviceProps.totalGlobalMem) / (1024 * 1024));
         printf("   CUDA Cap:   %d.%d\n", deviceProps.major, deviceProps.minor);
+        gpuCapacity = static_cast<uint>(deviceProps.totalGlobalMem) /(sizeof(uint)*NUM_BLOCKS)*NUM_CUDA_THREADS;
+        printf("capacity: %u\n",gpuCapacity );
+
     }
     printf("---------------------------------------------------------\n");
     // By this time the scene should be loaded.  Now copy all the key
@@ -553,7 +556,7 @@ int GraphGen_Cuda::setup(
 		unsigned int recIdx = 0;
 		for( auto& rec: squares ) {
 
-			if( Eligible_RNG_Rec(rec, standardCapacity) ) {
+			if( Eligible_RNG_Rec(rec, gpuCapacity) ) {
 				// continue;
 			} else {
 				ShatterSquare(squares, RMAT_a, RMAT_b, RMAT_c, recIdx, directedGraph);
@@ -566,7 +569,7 @@ int GraphGen_Cuda::setup(
 	} while( !allRecsAreInRange );
 
 	// Making sure there are enough squares to utilize all blocks and not more
-	while( squares.size() < NUM_BLOCKS && !edgeOverflow(squares) ) {
+	while( squares.size() < NUM_BLOCKS || edgeOverflow(squares) ) {
 		// Shattering the biggest rectangle.
 		uint biggest_size = 0;
 		unsigned int biggest_index = 0;
@@ -578,34 +581,34 @@ int GraphGen_Cuda::setup(
 		ShatterSquare(squares, RMAT_a, RMAT_b, RMAT_c, biggest_index, directedGraph);
 	}
 
-	if (allowDuplicateEdges)
-	{
-		int originalSize = squares.size();
-		for (int index = 0; index < originalSize; ++index)
-		{
-			//memory leak?
-			Square srcRect(squares.at(index));
-			// squares.erase(squares.begin()+index);
+	// if (allowDuplicateEdges)
+	// {
+	// 	int originalSize = squares.size();
+	// 	for (int index = 0; index < originalSize; ++index)
+	// 	{
+	// 		//memory leak?
+	// 		Square srcRect(squares.at(index));
+	// 		// squares.erase(squares.begin()+index);
 		
-			int numEdgesAssigned = 0;
-			int edgesPerSquare = srcRect.getnEdges()/NUM_BLOCKS;
-			if (edgesPerSquare< MAX_NUM_EDGES_PER_BLOCK )
-			{
-				continue;
-			}
-			for( unsigned int i = 0; i < NUM_BLOCKS-1; ++i ){
-				Square destRect(srcRect);
-				destRect.setnEdges(edgesPerSquare);
-				numEdgesAssigned+=edgesPerSquare;
-				squares.push_back(destRect);
+	// 		int numEdgesAssigned = 0;
+	// 		int edgesPerSquare = srcRect.getnEdges()/NUM_BLOCKS;
+	// 		if (edgesPerSquare< MAX_NUM_EDGES_PER_BLOCK )
+	// 		{
+	// 			continue;
+	// 		}
+	// 		for( unsigned int i = 0; i < NUM_BLOCKS-1; ++i ){
+	// 			Square destRect(srcRect);
+	// 			destRect.setnEdges(edgesPerSquare);
+	// 			numEdgesAssigned+=edgesPerSquare;
+	// 			squares.push_back(destRect);
 
-			}
-			srcRect.setnEdges( srcRect.getnEdges()-numEdgesAssigned);
-			squares.at(index) = srcRect;
-		}
+	// 		}
+	// 		srcRect.setnEdges( srcRect.getnEdges()-numEdgesAssigned);
+	// 		squares.at(index) = srcRect;
+	// 	}
 
 	
-	}
+	// }
 	std::sort(squares.begin(), squares.end(),std::greater<Square>());
 
     //uint* allSquares = (uint*) malloc(sizeof(uint)* 6 * squares.size());
@@ -647,9 +650,9 @@ int GraphGen_Cuda::setup(
     // initSorted<<<squares.size(), NUM_CUDA_THREADS>>>(time(0));
     // cudaDeviceSynchronize();
 
-    for( unsigned int x = 0; x < squares.size(); ++x ){
-        std::cout << squares.at(x);
-    }
+    // for( unsigned int x = 0; x < squares.size(); ++x ){
+    //     std::cout << squares.at(x);
+    // }
     std::cout << "CUDA Error " << cudaGetErrorString(cudaGetLastError()) << "\n";
     //free(allSquares);
     return squares.size();
@@ -660,7 +663,7 @@ void GraphGen_Cuda::generate(const bool directedGraph,
     dim3 nThreads(NUM_CUDA_THREADS,1,1);
     // dim3 gridDim(updivHost(squares_size, blockDim.x));
     dim3 nBlocks(squares_size,1,1);
-    printf("Hello launching kernel of blocks %d %d %d and tpb %d %d %d\n", nBlocks.x, nBlocks.y, nBlocks.z, nThreads.x, nThreads.y, nThreads.z);
+    printf("Hello launching kernel of blocks %d [%u]  and tpb %d \n", nBlocks.x, NUM_BLOCKS, nThreads.x);
     if (!compressed)
     KernelGenerateEdges<<<nBlocks, nThreads>>>();
     else
