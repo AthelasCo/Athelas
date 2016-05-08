@@ -106,9 +106,9 @@ int main( int argc, char ** argv ) {
 			else if( !strcmp(argv[iii], "-fileprint"))
 				fileprint = true;
 			else if( !strcmp(argv[iii], "-num_blocks"))
-				num_blocks = std::stoul( std::string(argv[iii]) );
-			else if( !strcmp(argv[iii], "-fileprint"))
-				num_cuda_threads = std::stoul( std::string(argv[iii]) );
+				num_blocks = std::stoul( std::string(argv[iii+1]) );
+			else if( !strcmp(argv[iii], "-num_cuda_threads"))
+				num_cuda_threads = std::stoul( std::string(argv[iii+1]) );
 		}
 
 		if( nVertices == 0 || nEdges == 0 || nEdges/nVertices/nVertices >= 1 )

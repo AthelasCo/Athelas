@@ -673,7 +673,7 @@ int GraphGen_Cuda::setup(
     // cudaDeviceSynchronize();
 
     for( unsigned int x = 0; x < squares.size(); ++x ){
-        if ((squares.at(x).get_X_end()-squares.at(x).get_X_start()) > 2^16 || (squares.at(x).get_Y_end()-squares.at(x).get_Y_start()) > 2^16)
+        if ((squares.at(x).get_X_end()-squares.at(x).get_X_start()) > 2<<16 || (squares.at(x).get_Y_end()-squares.at(x).get_Y_start()) > 2<<16)
         {
           std::cout << squares.at(x);
         }
