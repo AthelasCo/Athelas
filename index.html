@@ -1,34 +1,25 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en-us">
   <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta charset="UTF-8">
     <title>Athelas by AthelasCo</title>
-
-    <link rel="stylesheet" href="stylesheets/styles.css">
-    <link rel="stylesheet" href="stylesheets/github-light.css">
-    <meta name="viewport" content="width=device-width">
-    <!--[if lt IE 9]>
-    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
   </head>
   <body>
-    <div class="wrapper">
-      <header>
-        <h1>Athelas</h1>
-        <p></p>
+    <section class="page-header">
+      <h1 class="project-name">Athelas</h1>
+      <h2 class="project-tagline"></h2>
+      <a href="https://github.com/AthelasCo/Athelas" class="btn">View on GitHub</a>
+      <a href="https://github.com/AthelasCo/Athelas/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/AthelasCo/Athelas/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
 
-        <p class="view"><a href="https://github.com/AthelasCo/Athelas">View the Project on GitHub <small>AthelasCo/Athelas</small></a></p>
-
-
-        <ul>
-          <li><a href="https://github.com/AthelasCo/Athelas/zipball/master">Download <strong>ZIP File</strong></a></li>
-          <li><a href="https://github.com/AthelasCo/Athelas/tarball/master">Download <strong>TAR Ball</strong></a></li>
-          <li><a href="https://github.com/AthelasCo/Athelas">View On <strong>GitHub</strong></a></li>
-        </ul>
-      </header>
-      <section>
-        <h1>
+    <section class="main-content">
+      <h1>
 <a id="a-parallel-random-graph-generation-library" class="anchor" href="#a-parallel-random-graph-generation-library" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>A parallel random graph generation library.</h1>
 
 <pre><code>                              By
@@ -53,7 +44,7 @@
 <li>CL method (Chung Lu)</li>
 </ul>
 
-<p>To concentrate best on our aim of comparison of the implementation libraries, we implemented the SKG algorithm which is a generalization on the ER algorithm. The idea was to best optimize this algorithm over the various libraries to analyze the implementation and speedup.</p>
+<p>To concentrate best on our aim of comparison of the implementation libraries, we implemented the RMAT algorithm which is a generalization on the ER algorithm. The idea was to best optimize this algorithm over the various libraries to analyze the implementation and speedup.</p>
 
 <p>We used SNAP and PaRMAT libraries for initial benchmarking and as code base. The evaluation of our algorithms and benchmarking was implemented by us. The checker functions to ensure that the properties for RMATs were ported from SNAP. Both these libraries provide different options for generations of graphs (directed vs. undirected, sorted vs. unsorted), we modeled our interface to support the same. To get optimal performance, we tuned our kernels/functions to take such parameters in to account.</p>
 
@@ -139,12 +130,32 @@ The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph.
 <a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h4>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress.png?raw=true" alt="CUDACompress">
-The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 3x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU. The basic representation is by storing an edge tuple as a single number instead of a tuple. Within a square each edge can be represented as an offset form the origin, the details of this representation are listed in the Algorithm description below.
+After looking at the memory transfer times we realized that memory copy times are taking a significant amount of time on the GPU. We first looked at the sqaures and saw that most ranges were less than 2^16.  This meant that we can actually fit in the the edge exactly in a 2^32 bit representations of uints. 
+The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 2x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU. The basic representation is by storing an edge tuple as a single number instead of a tuple. Within a square each edge can be represented as an offset form the origin, the details of this representation are listed in the Algorithm description below.
 <img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/Algo.png?raw=true" alt="CUDACompress"></p>
 
 <p><em>Algorithm for Compression</em></p>
 
 <p>This also allows for easy reconstruction, as the math pre edge is independent and simple. Thus instead of storing an edge as a tuple, we are storing it as a single integer.</p>
+
+<h4>
+<a id="huffman-coding" class="anchor" href="#huffman-coding" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Huffman coding</h4>
+
+<p>We looked at the results of this optimization and found that as we increase the number of vertices the number of times that we can actually apply this approach goes down. This is because the range of the square quickly exceeds 2^16 vertices. We then looked at another method for achieving compression.</p>
+
+<p>Unfortunately most other compression formats are ill suited for compressing the graph on the fly as we are generating it. So formats like CSR which are are commonly used in numpy are ill suited for the job.</p>
+
+<p>The key insight is that all edges are not equally likely and hence our level of our surprise should be different for different edges. It should be lower for edges with higher probabilities and higher for ones with lower probabilities. Huffman coding actually formalizes this concept. </p>
+
+<p>We can think of an edge (V1, V2) as a series of choices. At each stage we choose one of the 4 blocks. A,B,C or D. So we can actually represent the edge as [A|B|C|D]+ of length log(|V|). Now, because we know the prior probabilities of a,b,c and d we can encode this string using huffman codes for the the respective blocks. </p>
+
+<p>Say A has a probability mass of 0.9. That would mean that most of the edges would lie in the upper left corner of the graph. This would mean that most edges have a large percentage of As in them. This would give us a huge reason for compression. </p>
+
+<p>&lt;&lt;&lt;&gt;&gt;</p>
+
+<p>Unsurprisingly the compression ratio for graphs is higher for the cases where the probabilities are really skewed or the number of vertices is smaller than 2^32. The second condition follows from the fact that greater the number of vertices the greater the depth we need to go to actually get the graph. This implies a greater edge string length in terms of blocks for those  graphs and lesser scope for compression.</p>
+
+<p>As we increase the number of edges the compression ratio remains constant. This is because the compression ratio per edge is independent of the number of edges.</p>
 
 <p>Aside on programming complexity:</p>
 
@@ -158,7 +169,7 @@ Due to its nature, openMP provided the least options to explore and least flexib
 <h3>
 <a id="future-work" class="anchor" href="#future-work" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>FUTURE WORK</h3>
 
-<p>We want to explore latency hiding in all three for faster FILE IO. The use of compression was already implemented in CUDA and needs to be done in the other two. CUDA also has parallel stream execution by which we can transfer chunks of memory the moment a kernel gets over. We will try to finish the experiments by 5/9.</p>
+<p>We want to explore latency hiding in all three for faster memory operations. The use of compression was already implemented in CUDA and needs to be done in the other two. CUDA also has parallel stream execution by which we can transfer chunks of memory the moment a kernel gets over. We will try to finish the experiments by 5/9.</p>
 
 <h3>
 <a id="tldr" class="anchor" href="#tldr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Tl;Dr</h3>
@@ -190,13 +201,15 @@ and</li>
 <a id="work-division" class="anchor" href="#work-division" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Work Division</h3>
 
 <p>Equal work was performed by both project members.</p>
-      </section>
-      <footer>
-        <p>This project is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a></p>
-        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/AthelasCo/Athelas">Athelas</a> is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
       </footer>
-    </div>
-    <script src="javascripts/scale.fix.js"></script>
-    
+
+    </section>
+
+  
   </body>
 </html>
