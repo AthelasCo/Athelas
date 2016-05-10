@@ -1,25 +1,34 @@
-<!DOCTYPE html>
-<html lang="en-us">
+<!doctype html>
+<html>
   <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
     <title>Athelas by AthelasCo</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
-    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
-    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
-    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
   </head>
   <body>
-    <section class="page-header">
-      <h1 class="project-name">Athelas</h1>
-      <h2 class="project-tagline"></h2>
-      <a href="https://github.com/AthelasCo/Athelas" class="btn">View on GitHub</a>
-      <a href="https://github.com/AthelasCo/Athelas/zipball/master" class="btn">Download .zip</a>
-      <a href="https://github.com/AthelasCo/Athelas/tarball/master" class="btn">Download .tar.gz</a>
-    </section>
+    <div class="wrapper">
+      <header>
+        <h1>Athelas</h1>
+        <p></p>
 
-    <section class="main-content">
-      <h1>
+        <p class="view"><a href="https://github.com/AthelasCo/Athelas">View the Project on GitHub <small>AthelasCo/Athelas</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/AthelasCo/Athelas/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/AthelasCo/Athelas/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/AthelasCo/Athelas">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
 <a id="a-parallel-random-graph-generation-library" class="anchor" href="#a-parallel-random-graph-generation-library" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>A parallel random graph generation library.</h1>
 
 <pre><code>                              By
@@ -27,13 +36,13 @@
          kjohar@andrew.cmu.edu   everma@andrew.cmu.edu
 </code></pre>
 
-<h3>
-<a id="summary" class="anchor" href="#summary" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SUMMARY:</h3>
+<h2>
+<a id="summary" class="anchor" href="#summary" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>SUMMARY:</h2>
 
 <p>We implemented a library to generate parallel large-scale graphs using OpenMP/pThreads, exploiting CPU Architecture and using CUDA on GPUS. The aim was to compare implementation complexity, speed and resource efficiency.</p>
 
-<h3>
-<a id="background" class="anchor" href="#background" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>BACKGROUND:</h3>
+<h2>
+<a id="background" class="anchor" href="#background" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>BACKGROUND:</h2>
 
 <p>Processing Real World graphs is an active research problem. The real-world complex graphs are typically very large (with millions or more vertices) and their sizes grow over time. Some researchers predict that the size of these graphs will eventually reach 10^15 vertices. Unfortunately, we do not have publicly available real graphs that are large enough to test the functionality and true scalability of the graph applications. Hence, graph generation is an important field of research. There are many implementation and algorithms that exist but a serious drawback of these models is that they are all sequential models and thus, are inadequate in their usage to generate massive graphs with billions of vertices and edges.</p>
 
@@ -60,12 +69,35 @@
 <li>Compressed representation of the graph</li>
 </ol>
 
+<p>The load-balancing issue is showcased in the graph below. This is the initial cut implementations of our algorithms with skew on the probability distribution mapped on the x-axis. </p>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compare.png?raw=true" alt="WL"></p>
+
+<p><em>Workload Distribution of implementation across probabilities</em></p>
+
+<h3>
+<a id="inputs-and-outputs" class="anchor" href="#inputs-and-outputs" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Inputs and Outputs</h3>
+
+<p>-Inputs: Probability Distribution (Explained ahead), No. of Edges, No. of Vertices, Graph Properties</p>
+
+<p>-Outputs: Traditionally, a tab separated list of edges (There is a giant inefficiency here which we address later)</p>
+
+<p>-Outputs: Graph in Memory</p>
+
+<h3>
+<a id="unit-of-parallelism-and-sharding-of-squares" class="anchor" href="#unit-of-parallelism-and-sharding-of-squares" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Unit of Parallelism and Sharding of Squares</h3>
+
+<p>&lt;&gt;
+As the Figure above shows, a computation of an edge requires calculation of random uniform probabilities and recursively looking up the probability distribution of the graph to be generated. Hence, implicitly, a parallelism exists over every edge. However, it is wiser to shard over sub-squares, or sub-quadrants. The reason being, the communication and synchronization overhead over all edges will be more than determining a distribution of the number of edges within a square and hence parallelizing over these modules.
+Thus each square will call recursively try to generate its share of edges till its pool of edges to generate is exhausted. This ensures that the net edges to generate is preserved.
+Another factor which is benefitted from this approach is load balancing as we can ensure work distribution amongst sub-squares.</p>
+
 <h2>
 <a id="approach" class="anchor" href="#approach" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>APPROACH</h2>
 
 <p>There are three parts in the approach we adopted:
 (1) A Serial CPU Square Generation:
-All three implementations share a serial section in which the input matrix of edges to be generated is divided up in squares according to the probability distributions and these squares get a connection degree associated with them. The division can be seen in the figure.</p>
+All three implementations share a serial section in which the input matrix of edges to be generated is divided up in squares according to the probability distributions and these squares get a connection degree associated with them. As explained before, this has some inherent advantages. The division can be seen in the figure.</p>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/SQ.png?raw=true" alt="SQ"></p>
 
@@ -85,7 +117,12 @@ The openMP implementation was over all the squares in the list, and having a loc
 The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph. At the block level we parallelized over all squares and within a block, the parallellization was over all source nodes. The graph was compressed by writing matrix offsets of edges generated to memory. Hence the compression of the graph helped in reducing the memory transfer overhead from the device. At the same time, the cost of expanding the graph is not much in the CPU. The serial algorithm for sorting was optimized to gain block locality and benefit from shared memory accesses as opposed to flushing to global memory. Another overhead in CUDA was ensuring the random number generation for which we had to initialize different states for graph depth and thread ID. The CURAND library was used for generating a random number from within the kernel.</p>
 
 <h3>
-<a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESULTS</h3>
+<a id="paths-not-taken" class="anchor" href="#paths-not-taken" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Paths not Taken</h3>
+
+<p>We tried implementing the Poisson-SKG algorithm which enables one to generate a set of destination edges from one source in a single iteration. However, the output graphs were very noisy, and even though this implementation had benefits we abandoned it as the noisy graphs did not align with our correctness measure.</p>
+
+<h2>
+<a id="results" class="anchor" href="#results" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESULTS</h2>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/fused.png?raw=true" alt="Bug in code"></p>
 
@@ -108,12 +145,6 @@ The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph.
 
 <p>Our implementation scales across cores and plateaus after a point as the inherent parallelism breaks down.</p>
 
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compare.png?raw=true" alt="WL"></p>
-
-<p><em>Workload Distribution of implementation across probabilities</em></p>
-
-<p>The workload distribution across probability distribution can be seen above. As mentioned before, the target probability matrix plays a significant role in the distribution of work amongst the squares generated and this is a trend across libraries.</p>
-
 <p>We are not comparing generation speedup w.r.t. the baseline input as there were some logical faults in the graph generation algorithm, however, we can compare our algorithm across the 3 libraries as its uniform and correct. As can be seen PTHREADs is having an advantage over openMP due to the better distribution and no overheads. CUDA, even with the device transfer is performing an order faster than both.</p>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/runtime.png?raw=true" alt="CUDATime"></p>
@@ -126,8 +157,8 @@ The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph.
 
 <p><em>CUDA Kernel Vs. Data Transfer Timings across Graph Sizes</em></p>
 
-<h4>
-<a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h4>
+<h3>
+<a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h3>
 
 <p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress.png?raw=true" alt="CUDACompress">
 After looking at the memory transfer times we realized that memory copy times are taking a significant amount of time on the GPU. We first looked at the sqaures and saw that most ranges were less than 2^16.  This meant that we can actually fit in the the edge exactly in a 2^32 bit representations of uints. 
@@ -166,18 +197,18 @@ OpenMP was the easiest to parallelize a given serial implementation, with PTHREA
 Due to its nature, openMP provided the least options to explore and least flexibility in terms of implementation. CUDA on the other hand is something we are still optimizing over. The chance to exploit block level locality presents many diverse implementation strategies and options.</p></li>
 </ol>
 
-<h3>
-<a id="future-work" class="anchor" href="#future-work" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>FUTURE WORK</h3>
+<h2>
+<a id="future-work" class="anchor" href="#future-work" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>FUTURE WORK</h2>
 
 <p>We want to explore latency hiding in all three for faster memory operations. The use of compression was already implemented in CUDA and needs to be done in the other two. CUDA also has parallel stream execution by which we can transfer chunks of memory the moment a kernel gets over. We will try to finish the experiments by 5/9.</p>
 
-<h3>
-<a id="tldr" class="anchor" href="#tldr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Tl;Dr</h3>
+<h2>
+<a id="tldr" class="anchor" href="#tldr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Tl;Dr</h2>
 
 <p>We implemented a Parallel Graph Generation Library which enables a user to generate massive random graphs using the platform of choice. The implementation across libraries was to best understand the complexity as well as optimization capabilities of each and not just to present as an option to the end user. The library scales across graph sizes and is easy and intuitive to setup and use.</p>
 
-<h3>
-<a id="resources" class="anchor" href="#resources" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESOURCES</h3>
+<h2>
+<a id="resources" class="anchor" href="#resources" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>RESOURCES</h2>
 
 <ul>
 <li>We will be using the code present here as our starting point:
@@ -197,19 +228,17 @@ and</li>
 <li><a href="http://karras.rutgers.edu/rg.pdf">Nobari, Sadegh, et al. "Fast random graph generation." Proceedings of the 14th international conference on extending database technology. ACM, 2011</a></li>
 </ul>
 
-<h3>
-<a id="work-division" class="anchor" href="#work-division" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Work Division</h3>
+<h2>
+<a id="work-division" class="anchor" href="#work-division" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Work Division</h2>
 
 <p>Equal work was performed by both project members.</p>
-
-      <footer class="site-footer">
-        <span class="site-footer-owner"><a href="https://github.com/AthelasCo/Athelas">Athelas</a> is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a>.</span>
-
-        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/AthelasCo">AthelasCo</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
       </footer>
-
-    </section>
-
-  
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+    
   </body>
 </html>
