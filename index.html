@@ -87,8 +87,11 @@
 <h3>
 <a id="unit-of-parallelism-and-sharding-of-squares" class="anchor" href="#unit-of-parallelism-and-sharding-of-squares" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Unit of Parallelism and Sharding of Squares</h3>
 
-<p>&lt;&gt;
-As the Figure above shows, a computation of an edge requires calculation of random uniform probabilities and recursively looking up the probability distribution of the graph to be generated. Hence, implicitly, a parallelism exists over every edge. However, it is wiser to shard over sub-squares, or sub-quadrants. The reason being, the communication and synchronization overhead over all edges will be more than determining a distribution of the number of edges within a square and hence parallelizing over these modules.
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/generate.png?raw=true" alt="WL"></p>
+
+<p><em>Generation of edge (1,1) in a 4x4 Matrix</em></p>
+
+<p>As the Figure above shows, a computation of an edge requires calculation of random uniform probabilities and recursively looking up the probability distribution of the graph to be generated. Hence, implicitly, a parallelism exists over every edge. However, it is wiser to shard over sub-squares, or sub-quadrants. The reason being, the communication and synchronization overhead over all edges will be more than determining a distribution of the number of edges within a square and hence parallelizing over these modules.
 Thus each square will call recursively try to generate its share of edges till its pool of edges to generate is exhausted. This ensures that the net edges to generate is preserved.
 Another factor which is benefitted from this approach is load balancing as we can ensure work distribution amongst sub-squares.</p>
 
@@ -147,21 +150,23 @@ The kernel design for CUDA involved optimizing over sorted vs. non-sorted graph.
 
 <p>We are not comparing generation speedup w.r.t. the baseline input as there were some logical faults in the graph generation algorithm, however, we can compare our algorithm across the 3 libraries as its uniform and correct. As can be seen PTHREADs is having an advantage over openMP due to the better distribution and no overheads. CUDA, even with the device transfer is performing an order faster than both.</p>
 
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/runtime.png?raw=true" alt="CUDATime"></p>
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/tuning.png?raw=true" alt="CUDATime"></p>
 
-<p><em>CUDA runtimes on different probability distribution</em></p>
+<p><em>CUDA Tuning Challenges on scaling generated vertices 10x and edges 10x</em></p>
 
-<p>The distribution of the Kernel runtime to device transfer times indicates that as the workload becomes more uneven the kernel takes more time to execute, similarly, as the graph becomes bigger, the data times start dominating. The runtimes are linearly increasing as the no. of nodes increase which is also expected as the each kernel instance will execute for longer uniformly
-<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling2.png?raw=true" alt="CUDAScale">
-<img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/scaling.png?raw=true" alt="CUDAScale"></p>
+<p>One inherent challenge in CUDA is finding the sweet spot of implementation in terms of thread and block sizing. This is visualized above with scaling the vertices and edges by 10x. As can be seen the sweet spot shifts. We could heuristically tune this parameter based on sparsity of the target matrix but such an approach was not adopted.</p>
 
-<p><em>CUDA Kernel Vs. Data Transfer Timings across Graph Sizes</em></p>
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/overallscale.png?raw=true" alt="SC"></p>
+
+<p><em>Overall scaling. (L) Linear Time Vs. Linear Scale, (R) Log Time Vs. Log Scale</em></p>
+
+<p>The overall scaling of all implementations is shown above and as expected, the CUDA generation plus memory times seem to perform much better across scales. However, the Log scale graph showcases that there is a fixed overhead in CUDA for smaller graphs.</p>
 
 <h3>
 <a id="compression" class="anchor" href="#compression" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Compression</h3>
 
-<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress.png?raw=true" alt="CUDACompress">
-After looking at the memory transfer times we realized that memory copy times are taking a significant amount of time on the GPU. We first looked at the sqaures and saw that most ranges were less than 2^16.  This meant that we can actually fit in the the edge exactly in a 2^32 bit representations of uints. 
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/memcopy.png?raw=true" alt="CUDACompress">
+After looking at the memory transfer times we realized that memory copy times are taking a significant amount of time on the GPU. We first looked at the squares and saw that most ranges were less than 2^16.  This meant that we can actually fit in the the edge exactly in a 2^32 bit representations of uints. 
 The idea here was to build a compact representation of the graph so as to minimize the data transfer between device and host. By storing edges in a compact form, we were able to reduce the memory transfer by a factor of 2x on average which is a significant saving. This representation has minimal overhead in the kernel or in terms of reconstruction on the CPU. The basic representation is by storing an edge tuple as a single number instead of a tuple. Within a square each edge can be represented as an offset form the origin, the details of this representation are listed in the Algorithm description below.
 <img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/Algo.png?raw=true" alt="CUDACompress"></p>
 
@@ -182,13 +187,22 @@ The idea here was to build a compact representation of the graph so as to minimi
 
 <p>Say A has a probability mass of 0.9. That would mean that most of the edges would lie in the upper left corner of the graph. This would mean that most edges have a large percentage of As in them. This would give us a huge reason for compression. </p>
 
-<p>&lt;&lt;&lt;&gt;&gt;</p>
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress2.png?raw=true" alt="CUDACompress"></p>
+
+<p><em>Compression Results</em></p>
+
+<p><img src="https://github.com/AthelasCo/Athelas/blob/gh-pages/images/compress3.png?raw=true" alt="CUDACompress"></p>
+
+<p><em>Compression across probabilities</em></p>
 
 <p>Unsurprisingly the compression ratio for graphs is higher for the cases where the probabilities are really skewed or the number of vertices is smaller than 2^32. The second condition follows from the fact that greater the number of vertices the greater the depth we need to go to actually get the graph. This implies a greater edge string length in terms of blocks for those  graphs and lesser scope for compression.</p>
 
 <p>As we increase the number of edges the compression ratio remains constant. This is because the compression ratio per edge is independent of the number of edges.</p>
 
-<p>Aside on programming complexity:</p>
+<h3>
+<a id="aside" class="anchor" href="#aside" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>ASIDE:</h3>
+
+<p>A note on programming complexity</p>
 
 <ol>
 <li><p>Start-to-Basic Implementation
